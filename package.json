@@ -1,0 +1,15 @@
+{
+  "name": "bm_backend",
+  "version": "1.0.0",
+  "description": "this is backend for bm",
+  "main": "server.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "Abdelrahman",
+  "license": "ISC",
+  "dependencies": {
+    "express": "^5.1.0",
+    "nodemon": "^3.1.10"
+  }
+}
