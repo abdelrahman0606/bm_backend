@@ -1,0 +1,197 @@
+{
+  "info": {
+    "name": "BM Backend - Companies",
+    "description": "CRUD operations for the Companies feature. Note: Update the `bearer_token` collection variable with a valid JWT token before sending requests.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Create Company",
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{bearer_token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"id\": \"comp-001\",\n  \"title\": \"Acme Corp\",\n  \"description\": \"An awesome company\",\n  \"icon\": \"https://example.com/icon.png\",\n  \"isPrimary\": true,\n  \"index\": 1\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/api/v1/companies",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "companies"
+          ]
+        }
+      }
+    },
+    {
+      "name": "Get All Companies",
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{bearer_token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/api/v1/companies?page=0&limit=10",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "companies"
+          ],
+          "query": [
+            {
+              "key": "page",
+              "value": "0"
+            },
+            {
+              "key": "limit",
+              "value": "10"
+            },
+            {
+              "key": "search",
+              "value": "Acme",
+              "disabled": true
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "Get Company By ID",
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{bearer_token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/api/v1/companies/comp-001",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "companies",
+            "comp-001"
+          ]
+        }
+      }
+    },
+    {
+      "name": "Update Company",
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{bearer_token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "PUT",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"title\": \"Acme Corporation Updated\",\n  \"description\": \"An even more awesome company\"\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/api/v1/companies/comp-001",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "companies",
+            "comp-001"
+          ]
+        }
+      }
+    },
+    {
+      "name": "Delete Company",
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{bearer_token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "DELETE",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/api/v1/companies/comp-001",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "companies",
+            "comp-001"
+          ]
+        }
+      }
+    }
+  ],
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:7070",
+      "type": "string"
+    },
+    {
+      "key": "bearer_token",
+      "value": "paste_your_jwt_token_here",
+      "type": "string"
+    }
+  ]
+}

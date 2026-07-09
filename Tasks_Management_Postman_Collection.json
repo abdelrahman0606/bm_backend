@@ -1,0 +1,2586 @@
+{
+  "info": {
+    "_postman_id": "b8a09b30-e8f2-45af-bc7d-94e82f7c00e1",
+    "name": "Reline Tasks Management API (Full Coverage)",
+    "description": "Comprehensive Postman collection for ALL Tasks Management APIs",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Workspaces",
+      "item": [
+        {
+          "name": "Create Workspace",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/tasks-management/workspaces",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "tasks-management",
+                "workspaces"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Engineering Workspace\",\n  \"description\": \"Workspace for the engineering team\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Get All Workspaces",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/tasks-management/workspaces",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "tasks-management",
+                "workspaces"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Workspace By ID",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/tasks-management/workspaces/:workspaceId",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "tasks-management",
+                "workspaces",
+                ":workspaceId"
+              ],
+              "variable": [
+                {
+                  "key": "workspaceId",
+                  "value": "60d21b4667d0d8992e610c80"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Update Workspace",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/tasks-management/workspaces/:workspaceId",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "tasks-management",
+                "workspaces",
+                ":workspaceId"
+              ],
+              "variable": [
+                {
+                  "key": "workspaceId",
+                  "value": "60d21b4667d0d8992e610c80"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Updated Workspace Name\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Delete Workspace",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/tasks-management/workspaces/:workspaceId",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "tasks-management",
+                "workspaces",
+                ":workspaceId"
+              ],
+              "variable": [
+                {
+                  "key": "workspaceId",
+                  "value": "60d21b4667d0d8992e610c80"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Add Member",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/tasks-management/workspaces/:workspaceId/members",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "tasks-management",
+                "workspaces",
+                ":workspaceId",
+                "members"
+              ],
+              "variable": [
+                {
+                  "key": "workspaceId",
+                  "value": "60d21b4667d0d8992e610c80"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"userId\": \"60d21b4667d0d8992e610c85\",\n  \"role\": \"Admin\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Get Members",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/tasks-management/workspaces/:workspaceId/members",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "tasks-management",
+                "workspaces",
+                ":workspaceId",
+                "members"
+              ],
+              "variable": [
+                {
+                  "key": "workspaceId",
+                  "value": "60d21b4667d0d8992e610c80"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Remove Member",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/tasks-management/workspaces/:workspaceId/members/:userId",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "tasks-management",
+                "workspaces",
+                ":workspaceId",
+                "members",
+                ":userId"
+              ],
+              "variable": [
+                {
+                  "key": "workspaceId",
+                  "value": "60d21b4667d0d8992e610c80"
+                },
+                {
+                  "key": "userId",
+                  "value": "60d21b4667d0d8992e610c85"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Projects",
+      "item": [
+        {
+          "name": "Create Project",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/tasks-management/projects",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "tasks-management",
+                "projects"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"workspaceId\": \"60d21b4667d0d8992e610c80\",\n  \"name\": \"New Project\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Get All Projects",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/tasks-management/projects",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "tasks-management",
+                "projects"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Project Stats",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/tasks-management/projects/stats",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "tasks-management",
+                "projects",
+                "stats"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Project By ID",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/tasks-management/projects/:projectId",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "tasks-management",
+                "projects",
+                ":projectId"
+              ],
+              "variable": [
+                {
+                  "key": "projectId",
+                  "value": "60d21b4667d0d8992e610c85"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Update Project",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/tasks-management/projects/:projectId",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "tasks-management",
+                "projects",
+                ":projectId"
+              ],
+              "variable": [
+                {
+                  "key": "projectId",
+                  "value": "60d21b4667d0d8992e610c85"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Updated Project Name\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Delete Project",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/tasks-management/projects/:projectId",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "tasks-management",
+                "projects",
+                ":projectId"
+              ],
+              "variable": [
+                {
+                  "key": "projectId",
+                  "value": "60d21b4667d0d8992e610c85"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Boards",
+      "item": [
+        {
+          "name": "Create Board",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/tasks-management/boards",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "tasks-management",
+                "boards"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"projectId\": \"60d21b4667d0d8992e610c85\",\n  \"name\": \"Main Scrum Board\",\n  \"type\": \"Scrum\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Get Boards",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/tasks-management/boards?projectId=60d21b4667d0d8992e610c85",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "tasks-management",
+                "boards"
+              ],
+              "query": [
+                {
+                  "key": "projectId",
+                  "value": "60d21b4667d0d8992e610c85"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Board By ID",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/tasks-management/boards/:boardId",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "tasks-management",
+                "boards",
+                ":boardId"
+              ],
+              "variable": [
+                {
+                  "key": "boardId",
+                  "value": "60d21b4667d0d8992e610c86"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Update Board",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/tasks-management/boards/:boardId",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "tasks-management",
+                "boards",
+                ":boardId"
+              ],
+              "variable": [
+                {
+                  "key": "boardId",
+                  "value": "60d21b4667d0d8992e610c86"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Updated Board Name\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Delete Board",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/tasks-management/boards/:boardId",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "tasks-management",
+                "boards",
+                ":boardId"
+              ],
+              "variable": [
+                {
+                  "key": "boardId",
+                  "value": "60d21b4667d0d8992e610c86"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Sprints",
+      "item": [
+        {
+          "name": "Create Sprint",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/tasks-management/sprints",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "tasks-management",
+                "sprints"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"projectId\": \"60d21b4667d0d8992e610c85\",\n  \"boardId\": \"60d21b4667d0d8992e610c86\",\n  \"name\": \"Sprint 1\",\n  \"startDate\": \"2026-07-01T00:00:00Z\",\n  \"endDate\": \"2026-07-14T00:00:00Z\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Get Sprints",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/tasks-management/sprints?projectId=60d21b4667d0d8992e610c85",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "tasks-management",
+                "sprints"
+              ],
+              "query": [
+                {
+                  "key": "projectId",
+                  "value": "60d21b4667d0d8992e610c85"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Sprint By ID",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/tasks-management/sprints/:sprintId",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "tasks-management",
+                "sprints",
+                ":sprintId"
+              ],
+              "variable": [
+                {
+                  "key": "sprintId",
+                  "value": "60d21b4667d0d8992e610c87"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Update Sprint",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/tasks-management/sprints/:sprintId",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "tasks-management",
+                "sprints",
+                ":sprintId"
+              ],
+              "variable": [
+                {
+                  "key": "sprintId",
+                  "value": "60d21b4667d0d8992e610c87"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"state\": \"completed\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Delete Sprint",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/tasks-management/sprints/:sprintId",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "tasks-management",
+                "sprints",
+                ":sprintId"
+              ],
+              "variable": [
+                {
+                  "key": "sprintId",
+                  "value": "60d21b4667d0d8992e610c87"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Statuses",
+      "item": [
+        {
+          "name": "Create Status",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/tasks-management/statuses",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "tasks-management",
+                "statuses"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"workspaceId\": \"60d21b4667d0d8992e610c80\",\n  \"name\": \"In Progress\",\n  \"category\": \"IN_PROGRESS\",\n  \"color\": \"#3182ce\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Get Statuses",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/tasks-management/statuses?workspaceId=60d21b4667d0d8992e610c80",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "tasks-management",
+                "statuses"
+              ],
+              "query": [
+                {
+                  "key": "workspaceId",
+                  "value": "60d21b4667d0d8992e610c80"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Status By ID",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/tasks-management/statuses/:statusId",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "tasks-management",
+                "statuses",
+                ":statusId"
+              ],
+              "variable": [
+                {
+                  "key": "statusId",
+                  "value": "60d21b4667d0d8992e610c81"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Update Status",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/tasks-management/statuses/:statusId",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "tasks-management",
+                "statuses",
+                ":statusId"
+              ],
+              "variable": [
+                {
+                  "key": "statusId",
+                  "value": "60d21b4667d0d8992e610c81"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"color\": \"#000000\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Delete Status",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/tasks-management/statuses/:statusId",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "tasks-management",
+                "statuses",
+                ":statusId"
+              ],
+              "variable": [
+                {
+                  "key": "statusId",
+                  "value": "60d21b4667d0d8992e610c81"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Priorities",
+      "item": [
+        {
+          "name": "Create Priority",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/tasks-management/priorities",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "tasks-management",
+                "priorities"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"workspaceId\": \"60d21b4667d0d8992e610c80\",\n  \"name\": \"High\",\n  \"color\": \"#e53e3e\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Get Priorities",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/tasks-management/priorities?workspaceId=60d21b4667d0d8992e610c80",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "tasks-management",
+                "priorities"
+              ],
+              "query": [
+                {
+                  "key": "workspaceId",
+                  "value": "60d21b4667d0d8992e610c80"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Priority By ID",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/tasks-management/priorities/:priorityId",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "tasks-management",
+                "priorities",
+                ":priorityId"
+              ],
+              "variable": [
+                {
+                  "key": "priorityId",
+                  "value": "60d21b4667d0d8992e610c82"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Update Priority",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/tasks-management/priorities/:priorityId",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "tasks-management",
+                "priorities",
+                ":priorityId"
+              ],
+              "variable": [
+                {
+                  "key": "priorityId",
+                  "value": "60d21b4667d0d8992e610c82"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Critical\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Delete Priority",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/tasks-management/priorities/:priorityId",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "tasks-management",
+                "priorities",
+                ":priorityId"
+              ],
+              "variable": [
+                {
+                  "key": "priorityId",
+                  "value": "60d21b4667d0d8992e610c82"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Labels",
+      "item": [
+        {
+          "name": "Create Label",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/tasks-management/labels",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "tasks-management",
+                "labels"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"workspaceId\": \"60d21b4667d0d8992e610c80\",\n  \"name\": \"Frontend\",\n  \"color\": \"#d69e2e\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Get Labels",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/tasks-management/labels?workspaceId=60d21b4667d0d8992e610c80",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "tasks-management",
+                "labels"
+              ],
+              "query": [
+                {
+                  "key": "workspaceId",
+                  "value": "60d21b4667d0d8992e610c80"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Label By ID",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/tasks-management/labels/:labelId",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "tasks-management",
+                "labels",
+                ":labelId"
+              ],
+              "variable": [
+                {
+                  "key": "labelId",
+                  "value": "60d21b4667d0d8992e610c83"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Update Label",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/tasks-management/labels/:labelId",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "tasks-management",
+                "labels",
+                ":labelId"
+              ],
+              "variable": [
+                {
+                  "key": "labelId",
+                  "value": "60d21b4667d0d8992e610c83"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Backend\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Delete Label",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/tasks-management/labels/:labelId",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "tasks-management",
+                "labels",
+                ":labelId"
+              ],
+              "variable": [
+                {
+                  "key": "labelId",
+                  "value": "60d21b4667d0d8992e610c83"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Time Logs",
+      "item": [
+        {
+          "name": "Add Time Log",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/tasks-management/timelogs",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "tasks-management",
+                "timelogs"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"issueId\": \"60d21b4667d0d8992e610c85\",\n  \"minutes\": 120,\n  \"description\": \"Worked on database schema\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Get Time Logs",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/tasks-management/timelogs?issueId=60d21b4667d0d8992e610c85",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "tasks-management",
+                "timelogs"
+              ],
+              "query": [
+                {
+                  "key": "issueId",
+                  "value": "60d21b4667d0d8992e610c85"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Time Log By ID",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/tasks-management/timelogs/:timeLogId",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "tasks-management",
+                "timelogs",
+                ":timeLogId"
+              ],
+              "variable": [
+                {
+                  "key": "timeLogId",
+                  "value": "60d21b4667d0d8992e610c84"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Update Time Log",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/tasks-management/timelogs/:timeLogId",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "tasks-management",
+                "timelogs",
+                ":timeLogId"
+              ],
+              "variable": [
+                {
+                  "key": "timeLogId",
+                  "value": "60d21b4667d0d8992e610c84"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"minutes\": 150\n}"
+            }
+          }
+        },
+        {
+          "name": "Delete Time Log",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/tasks-management/timelogs/:timeLogId",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "tasks-management",
+                "timelogs",
+                ":timeLogId"
+              ],
+              "variable": [
+                {
+                  "key": "timeLogId",
+                  "value": "60d21b4667d0d8992e610c84"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Versions",
+      "item": [
+        {
+          "name": "Create Version",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/tasks-management/versions",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "tasks-management",
+                "versions"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"projectId\": \"60d21b4667d0d8992e610c85\",\n  \"name\": \"v1.0.0\",\n  \"releaseDate\": \"2026-08-01T00:00:00Z\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Get Versions",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/tasks-management/versions?projectId=60d21b4667d0d8992e610c85",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "tasks-management",
+                "versions"
+              ],
+              "query": [
+                {
+                  "key": "projectId",
+                  "value": "60d21b4667d0d8992e610c85"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Version By ID",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/tasks-management/versions/:versionId",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "tasks-management",
+                "versions",
+                ":versionId"
+              ],
+              "variable": [
+                {
+                  "key": "versionId",
+                  "value": "60d21b4667d0d8992e610c88"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Update Version",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/tasks-management/versions/:versionId",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "tasks-management",
+                "versions",
+                ":versionId"
+              ],
+              "variable": [
+                {
+                  "key": "versionId",
+                  "value": "60d21b4667d0d8992e610c88"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"released\": true\n}"
+            }
+          }
+        },
+        {
+          "name": "Delete Version",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/tasks-management/versions/:versionId",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "tasks-management",
+                "versions",
+                ":versionId"
+              ],
+              "variable": [
+                {
+                  "key": "versionId",
+                  "value": "60d21b4667d0d8992e610c88"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Components",
+      "item": [
+        {
+          "name": "Create Component",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/tasks-management/components",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "tasks-management",
+                "components"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"projectId\": \"60d21b4667d0d8992e610c85\",\n  \"name\": \"Frontend UI\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Get Components",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/tasks-management/components?projectId=60d21b4667d0d8992e610c85",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "tasks-management",
+                "components"
+              ],
+              "query": [
+                {
+                  "key": "projectId",
+                  "value": "60d21b4667d0d8992e610c85"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Component By ID",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/tasks-management/components/:componentId",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "tasks-management",
+                "components",
+                ":componentId"
+              ],
+              "variable": [
+                {
+                  "key": "componentId",
+                  "value": "60d21b4667d0d8992e610c89"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Update Component",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/tasks-management/components/:componentId",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "tasks-management",
+                "components",
+                ":componentId"
+              ],
+              "variable": [
+                {
+                  "key": "componentId",
+                  "value": "60d21b4667d0d8992e610c89"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Backend API\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Delete Component",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/tasks-management/components/:componentId",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "tasks-management",
+                "components",
+                ":componentId"
+              ],
+              "variable": [
+                {
+                  "key": "componentId",
+                  "value": "60d21b4667d0d8992e610c89"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Issues",
+      "item": [
+        {
+          "name": "Create Issue",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/tasks-management/issues",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "tasks-management",
+                "issues"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"projectId\": \"60d21b4667d0d8992e610c85\",\n  \"reporterId\": \"60d21b4667d0d8992e610c85\",\n  \"title\": \"New Feature Implementation\",\n  \"description\": \"Implement the new dashboard layout\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Get All Issues",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/tasks-management/issues?page=0&limit=20",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "tasks-management",
+                "issues"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "0"
+                },
+                {
+                  "key": "limit",
+                  "value": "20"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Issue Stats",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/tasks-management/issues/stats?projectId=60d21b4667d0d8992e610c85",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "tasks-management",
+                "issues",
+                "stats"
+              ],
+              "query": [
+                {
+                  "key": "projectId",
+                  "value": "60d21b4667d0d8992e610c85"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Issue By ID",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/tasks-management/issues/:issueId",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "tasks-management",
+                "issues",
+                ":issueId"
+              ],
+              "variable": [
+                {
+                  "key": "issueId",
+                  "value": "60d21b4667d0d8992e610c85"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Update Issue",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/tasks-management/issues/:issueId",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "tasks-management",
+                "issues",
+                ":issueId"
+              ],
+              "variable": [
+                {
+                  "key": "issueId",
+                  "value": "60d21b4667d0d8992e610c85"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Updated Feature Implementation\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Archive Issue",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/tasks-management/issues/:issueId/archive",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "tasks-management",
+                "issues",
+                ":issueId",
+                "archive"
+              ],
+              "variable": [
+                {
+                  "key": "issueId",
+                  "value": "60d21b4667d0d8992e610c85"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Restore Issue",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/tasks-management/issues/:issueId/restore",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "tasks-management",
+                "issues",
+                ":issueId",
+                "restore"
+              ],
+              "variable": [
+                {
+                  "key": "issueId",
+                  "value": "60d21b4667d0d8992e610c85"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Soft Delete Issue",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/tasks-management/issues/:issueId",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "tasks-management",
+                "issues",
+                ":issueId"
+              ],
+              "variable": [
+                {
+                  "key": "issueId",
+                  "value": "60d21b4667d0d8992e610c85"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Permanent Delete Issue",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/tasks-management/issues/:issueId/permanent",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "tasks-management",
+                "issues",
+                ":issueId",
+                "permanent"
+              ],
+              "variable": [
+                {
+                  "key": "issueId",
+                  "value": "60d21b4667d0d8992e610c85"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Sub-resources (Checklists, Comments, Assign, Watch)",
+          "item": [
+            {
+              "name": "Add Checklist Item",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{token}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/tasks-management/issues/:issueId/checklist",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "tasks-management",
+                    "issues",
+                    ":issueId",
+                    "checklist"
+                  ],
+                  "variable": [
+                    {
+                      "key": "issueId",
+                      "value": "60d21b4667d0d8992e610c85"
+                    }
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"title\": \"Design database schema\"\n}"
+                }
+              }
+            },
+            {
+              "name": "Update Checklist Item",
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{token}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/tasks-management/issues/:issueId/checklist/:itemId",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "tasks-management",
+                    "issues",
+                    ":issueId",
+                    "checklist",
+                    ":itemId"
+                  ],
+                  "variable": [
+                    {
+                      "key": "issueId",
+                      "value": "60d21b4667d0d8992e610c85"
+                    },
+                    {
+                      "key": "itemId",
+                      "value": "60d21b4667d0d8992e610c86"
+                    }
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"isCompleted\": true\n}"
+                }
+              }
+            },
+            {
+              "name": "Delete Checklist Item",
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{token}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/tasks-management/issues/:issueId/checklist/:itemId",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "tasks-management",
+                    "issues",
+                    ":issueId",
+                    "checklist",
+                    ":itemId"
+                  ],
+                  "variable": [
+                    {
+                      "key": "issueId",
+                      "value": "60d21b4667d0d8992e610c85"
+                    },
+                    {
+                      "key": "itemId",
+                      "value": "60d21b4667d0d8992e610c86"
+                    }
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Add Comment",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{token}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/tasks-management/issues/:issueId/comments",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "tasks-management",
+                    "issues",
+                    ":issueId",
+                    "comments"
+                  ],
+                  "variable": [
+                    {
+                      "key": "issueId",
+                      "value": "60d21b4667d0d8992e610c85"
+                    }
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"message\": \"This looks good so far!\"\n}"
+                }
+              }
+            },
+            {
+              "name": "Update Comment",
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{token}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/tasks-management/issues/:issueId/comments/:commentId",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "tasks-management",
+                    "issues",
+                    ":issueId",
+                    "comments",
+                    ":commentId"
+                  ],
+                  "variable": [
+                    {
+                      "key": "issueId",
+                      "value": "60d21b4667d0d8992e610c85"
+                    },
+                    {
+                      "key": "commentId",
+                      "value": "60d21b4667d0d8992e610c87"
+                    }
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"message\": \"Wait, I found a bug.\"\n}"
+                }
+              }
+            },
+            {
+              "name": "Delete Comment",
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{token}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/tasks-management/issues/:issueId/comments/:commentId",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "tasks-management",
+                    "issues",
+                    ":issueId",
+                    "comments",
+                    ":commentId"
+                  ],
+                  "variable": [
+                    {
+                      "key": "issueId",
+                      "value": "60d21b4667d0d8992e610c85"
+                    },
+                    {
+                      "key": "commentId",
+                      "value": "60d21b4667d0d8992e610c87"
+                    }
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Update Progress",
+              "request": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{token}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/tasks-management/issues/:issueId/progress",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "tasks-management",
+                    "issues",
+                    ":issueId",
+                    "progress"
+                  ],
+                  "variable": [
+                    {
+                      "key": "issueId",
+                      "value": "60d21b4667d0d8992e610c85"
+                    }
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"progress\": 50\n}"
+                }
+              }
+            },
+            {
+              "name": "Assign Users",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{token}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/tasks-management/issues/:issueId/assign",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "tasks-management",
+                    "issues",
+                    ":issueId",
+                    "assign"
+                  ],
+                  "variable": [
+                    {
+                      "key": "issueId",
+                      "value": "60d21b4667d0d8992e610c85"
+                    }
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"userIds\": [\n    \"60d21b4667d0d8992e610c88\"\n  ]\n}"
+                }
+              }
+            },
+            {
+              "name": "Remove Assignment",
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{token}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/tasks-management/issues/:issueId/assign/:userId",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "tasks-management",
+                    "issues",
+                    ":issueId",
+                    "assign",
+                    ":userId"
+                  ],
+                  "variable": [
+                    {
+                      "key": "issueId",
+                      "value": "60d21b4667d0d8992e610c85"
+                    },
+                    {
+                      "key": "userId",
+                      "value": "60d21b4667d0d8992e610c88"
+                    }
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Add Watcher",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{token}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/tasks-management/issues/:issueId/watch",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "tasks-management",
+                    "issues",
+                    ":issueId",
+                    "watch"
+                  ],
+                  "variable": [
+                    {
+                      "key": "issueId",
+                      "value": "60d21b4667d0d8992e610c85"
+                    }
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"userId\": \"60d21b4667d0d8992e610c89\"\n}"
+                }
+              }
+            },
+            {
+              "name": "Remove Watcher",
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{token}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/tasks-management/issues/:issueId/watch/:userId",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "tasks-management",
+                    "issues",
+                    ":issueId",
+                    "watch",
+                    ":userId"
+                  ],
+                  "variable": [
+                    {
+                      "key": "issueId",
+                      "value": "60d21b4667d0d8992e610c85"
+                    },
+                    {
+                      "key": "userId",
+                      "value": "60d21b4667d0d8992e610c89"
+                    }
+                  ]
+                }
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          ""
+        ]
+      }
+    },
+    {
+      "listen": "test",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          ""
+        ]
+      }
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8000",
+      "type": "string"
+    },
+    {
+      "key": "token",
+      "value": "YOUR_JWT_TOKEN",
+      "type": "string"
+    }
+  ]
+}
