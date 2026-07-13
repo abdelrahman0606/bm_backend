@@ -1,0 +1,359 @@
+{
+  "info": {
+    "_postman_id": "a1f3c2e4-9b7d-4e2a-b8c1-d6e5f4a3b2c1",
+    "name": "Projects API",
+    "description": "Full Postman collection for the refactored Projects feature.\n\nBase URL variable: {{baseUrl}} (e.g. http://localhost:8000)\nAuth token variable: {{token}}\nProject ID variable: {{projectId}}\n\nEndpoints:\n- List Projects\n- Create Project\n- Get Project Stats\n- Get Project By ID\n- Update Project\n- Delete Project (soft)\n- Archive Project\n- Restore Project\n- Get Project Configuration\n- Update Project Configuration",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8000",
+      "type": "string"
+    },
+    {
+      "key": "token",
+      "value": "YOUR_JWT_TOKEN_HERE",
+      "type": "string"
+    },
+    {
+      "key": "projectId",
+      "value": "REPLACE_WITH_PROJECT_ID",
+      "type": "string"
+    },
+    {
+      "key": "companyId",
+      "value": "REPLACE_WITH_COMPANY_ID",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "Projects",
+      "item": [
+        {
+          "name": "List Projects",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/tasks-management/projects?page=0&limit=20&companyId={{companyId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "tasks-management", "projects"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "0",
+                  "description": "Page index (0-based)"
+                },
+                {
+                  "key": "limit",
+                  "value": "20",
+                  "description": "Items per page (1–100)"
+                },
+                {
+                  "key": "companyId",
+                  "value": "{{companyId}}",
+                  "description": "Filter by company"
+                },
+                {
+                  "key": "search",
+                  "value": "",
+                  "description": "Search in title and description",
+                  "disabled": true
+                },
+                {
+                  "key": "status",
+                  "value": "active",
+                  "description": "Filter by status: planned | active | on_hold | completed | cancelled  (pipe-separated for multiple: active|planned)",
+                  "disabled": true
+                },
+                {
+                  "key": "privacy",
+                  "value": "workspace",
+                  "description": "Filter by privacy: public | private | workspace",
+                  "disabled": true
+                },
+                {
+                  "key": "isFavorite",
+                  "value": "true",
+                  "description": "Filter favorites only",
+                  "disabled": true
+                },
+                {
+                  "key": "isArchived",
+                  "value": "false",
+                  "description": "Filter archived projects",
+                  "disabled": true
+                },
+                {
+                  "key": "sort",
+                  "value": "createdAt:desc",
+                  "description": "Sort field and direction. Fields: createdAt | updatedAt | lastActivityAt | title | status | dueDate | startDate",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "Returns a paginated list of projects.\n\nSupports filtering by companyId, status, privacy, isFavorite, isArchived.\nSupports full-text search on title and description.\nSupports pipe-separated status values: status=active|planned"
+          },
+          "response": []
+        },
+        {
+          "name": "Create Project",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/tasks-management/projects",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "tasks-management", "projects"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"id\": \"proj-123\",\n  \"companyId\": \"{{companyId}}\",\n  \"title\": \"My New Project\",\n  \"description\": \"A short description of the project.\",\n  \"privacy\": \"workspace\",\n  \"status\": \"planned\",\n  \"type\": \"kanban\",\n  \"color\": 4284613624,\n  \"isFavorite\": false,\n  \"startDate\": \"2026-08-01T00:00:00.000Z\",\n  \"dueDate\": \"2026-12-31T00:00:00.000Z\",\n  \"logo\": null\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Creates a new project.\n\nAutomatically:\n- Provisions a ProjectConfiguration with default feature flags\n- Adds the authenticated user as the project OWNER in project_members\n\nRequired fields: id, companyId, title, privacy, status, type\nOptional fields: description, logo, color (integer), isFavorite, startDate, dueDate\n\nPrivacy values: public | private | workspace\nStatus values: planned | active | on_hold | completed | cancelled\nType values: kanban | scrum | list"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Project Stats",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/tasks-management/projects/stats?companyId={{companyId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "tasks-management", "projects", "stats"],
+              "query": [
+                {
+                  "key": "companyId",
+                  "value": "{{companyId}}",
+                  "description": "Optional: filter stats to a specific company"
+                }
+              ]
+            },
+            "description": "Returns dynamic project analytics. Nothing is stored — all counts are computed in real-time.\n\nReturns:\n- total\n- byStatus: { planned, active, on_hold, completed, cancelled }\n- archived\n- overdue\n- favorites"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Project By ID",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/tasks-management/projects/{{projectId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "tasks-management", "projects", "{{projectId}}"]
+            },
+            "description": "Returns a single project by ID.\n\nThe response includes a `members` array aggregated from the project_members collection. Members are NOT stored on the project document."
+          },
+          "response": []
+        },
+        {
+          "name": "Update Project",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/tasks-management/projects/{{projectId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "tasks-management", "projects", "{{projectId}}"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Updated Project Title\",\n  \"description\": \"Updated description.\",\n  \"status\": \"active\",\n  \"privacy\": \"private\",\n  \"type\": \"scrum\",\n  \"color\": 4279312257,\n  \"isFavorite\": true,\n  \"startDate\": \"2026-08-01T00:00:00.000Z\",\n  \"dueDate\": \"2026-12-31T00:00:00.000Z\",\n  \"logo\": null\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Updates a project. Only whitelisted fields are applied.\n\nUpdatable fields:\ntitle, description, logo, color (integer), privacy, status, type, isFavorite, startDate, dueDate\n\nAll fields are optional — send only what you want to change.\nAlso updates `lastActivityAt` automatically."
+          },
+          "response": []
+        },
+        {
+          "name": "Archive Project",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/tasks-management/projects/{{projectId}}/archive",
+              "host": ["{{baseUrl}}"],
+              "path": [
+                "api",
+                "v1",
+                "tasks-management",
+                "projects",
+                "{{projectId}}",
+                "archive"
+              ]
+            },
+            "description": "Soft-archives a project.\n\nSets isArchived = true and archivedAt = now.\nProject remains in the DB and can be restored.\nReturns 404 if the project is already archived."
+          },
+          "response": []
+        },
+        {
+          "name": "Restore Project",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/tasks-management/projects/{{projectId}}/restore",
+              "host": ["{{baseUrl}}"],
+              "path": [
+                "api",
+                "v1",
+                "tasks-management",
+                "projects",
+                "{{projectId}}",
+                "restore"
+              ]
+            },
+            "description": "Restores a previously archived project.\n\nSets isArchived = false and clears archivedAt.\nReturns 404 if the project is not currently archived."
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Project (Soft)",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/tasks-management/projects/{{projectId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "tasks-management", "projects", "{{projectId}}"]
+            },
+            "description": "Soft-deletes a project.\n\nSets isDeleted = true and deletedAt = now.\nThe project is excluded from all list and get queries.\nData is preserved in MongoDB."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Project Configuration",
+      "item": [
+        {
+          "name": "Get Project Configuration",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/tasks-management/projects/{{projectId}}/config",
+              "host": ["{{baseUrl}}"],
+              "path": [
+                "api",
+                "v1",
+                "tasks-management",
+                "projects",
+                "{{projectId}}",
+                "config"
+              ]
+            },
+            "description": "Returns the feature configuration for the project.\n\nIf a config document doesn't exist (e.g., for older projects), one is auto-created with default values.\n\nStored in the `project_configurations` collection — completely separate from the project document."
+          },
+          "response": []
+        },
+        {
+          "name": "Update Project Configuration",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/tasks-management/projects/{{projectId}}/config",
+              "host": ["{{baseUrl}}"],
+              "path": [
+                "api",
+                "v1",
+                "tasks-management",
+                "projects",
+                "{{projectId}}",
+                "config"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"settings\": {\n    \"timeTracking\": { \"enabled\": true },\n    \"sprints\": { \"enabled\": true },\n    \"ai\": { \"enabled\": false },\n    \"watchers\": { \"enabled\": true },\n    \"components\": { \"enabled\": true },\n    \"versions\": { \"enabled\": false },\n    \"activityLogs\": { \"enabled\": true },\n    \"notifications\": { \"enabled\": true },\n    \"guestAccess\": { \"enabled\": false },\n    \"fileUploads\": { \"enabled\": true },\n    \"comments\": { \"enabled\": true },\n    \"automation\": { \"enabled\": false }\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Updates one or more feature flags for the project.\n\nUses dot-notation $set internally — you can send a PARTIAL settings object and other flags won't be overwritten.\n\nAvailable feature keys:\n- timeTracking\n- ai\n- watchers\n- components\n- versions\n- sprints\n- activityLogs\n- notifications\n- guestAccess\n- fileUploads\n- comments\n- automation\n\nExample: enable only sprints without touching other flags:\n{\n  \"settings\": {\n    \"sprints\": { \"enabled\": true }\n  }\n}"
+          },
+          "response": []
+        }
+      ]
+    }
+  ]
+}

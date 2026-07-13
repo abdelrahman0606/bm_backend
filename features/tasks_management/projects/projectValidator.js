@@ -1,168 +1,251 @@
-const { check } = require("express-validator");
-const validatorMiddleware = require("../../../middlewares/validatorMiddleware");
-const {
-  ProjectVisibility,
-  ProjectStatus,
-  ProjectPriority,
-} = require("./projectEnums");
+const { body, param, query } = require("express-validator");
+const { ProjectVisibility, ProjectStatus, ProjectType } = require("./projectEnums");
 
-function parseBoolean(value) {
-  if (typeof value === "boolean") return value;
-  if (typeof value === "string") {
-    const normalized = value.trim().toLowerCase();
-    return normalized === "true" || normalized === "1";
-  }
-  return false;
-}
+// ── Reusable Helpers ─────────────────────────────────────────────────────────
 
-function isValidNullableDate(value, allowNull) {
-  if (value === null) return allowNull;
-  if (value === undefined || value === "") return true;
-  const date = new Date(value);
-  return !Number.isNaN(date.getTime());
-}
+const projectIdParam = param("projectId")
+  .isMongoId()
+  .withMessage("Invalid project ID");
 
-exports.getProjectValidator = [
-  check("id").isMongoId().withMessage("Invalid project id"),
-  validatorMiddleware,
-];
+const companyIdBody = body("companyId")
+  .notEmpty()
+  .withMessage("companyId is required")
+  .isMongoId()
+  .withMessage("companyId must be a valid MongoDB ObjectId");
 
-exports.createProjectValidator = [
-  check("workspaceId")
+// ── Create ────────────────────────────────────────────────────────────────────
+
+const createProjectValidator = [
+  body("id")
     .notEmpty()
-    .withMessage("workspaceId is required")
-    .isString(),
-  check("createdBy").notEmpty().withMessage("createdBy is required").isString(),
-  check("title")
+    .withMessage("id is required")
+    .isString()
+    .withMessage("id must be a string"),
+
+  companyIdBody,
+
+  body("title")
     .notEmpty()
     .withMessage("title is required")
-    .isLength({ min: 3, max: 128 }),
-  check("description")
-    .notEmpty()
-    .withMessage("description is required")
-    .isString(),
-  check("coverImage").optional().isString(),
-  check("emoji").optional().isString(),
-  check("icon").optional().isString(),
-  check("colorValue").optional().isInt(),
-  check("privacy")
+    .isString()
+    .trim()
+    .isLength({ min: 1, max: 128 })
+    .withMessage("title must be between 1 and 128 characters"),
+
+  body("description").optional().isString().trim(),
+
+  body("logo")
+    .optional({ nullable: true })
+    .isObject()
+    .withMessage("logo must be a FileModel object"),
+
+  body("color")
+    .optional({ nullable: true })
+    .isInt()
+    .withMessage("color must be an integer"),
+
+  body("privacy")
     .notEmpty()
     .withMessage("privacy is required")
-    .isIn(Object.values(ProjectVisibility)),
-  check("status")
+    .isIn(Object.values(ProjectVisibility))
+    .withMessage(
+      `privacy must be one of: ${Object.values(ProjectVisibility).join(", ")}`
+    ),
+
+  body("status")
     .notEmpty()
     .withMessage("status is required")
-    .isIn(Object.values(ProjectStatus)),
-  check("priority")
+    .isIn(Object.values(ProjectStatus))
+    .withMessage(
+      `status must be one of: ${Object.values(ProjectStatus).join(", ")}`
+    ),
+
+  body("type")
     .notEmpty()
-    .withMessage("priority is required")
-    .isIn(Object.values(ProjectPriority)),
-  check("isFavorite").optional().isBoolean(),
-  check("isArchived").optional().isBoolean(),
-  check("isTemplate").optional().isBoolean(),
-  check("isDeleted").optional().isBoolean(),
-  check("tags").optional().isArray(),
-  check("attachments").optional().isArray(),
-  check("links").optional().isArray(),
-  check("members").optional().isArray(),
-  check("settings")
-    .optional()
-    .custom(
-      (value) =>
-        typeof value === "object" && value !== null && !Array.isArray(value),
-    )
-    .withMessage("settings must be an object"),
-  check("analytics")
-    .optional()
-    .custom(
-      (value) =>
-        typeof value === "object" && value !== null && !Array.isArray(value),
-    )
-    .withMessage("analytics must be an object"),
-  check("archivedAt")
-    .optional({ nullable: true })
-    .custom((value, { req }) => {
-      const isArchived = parseBoolean(req.body.isArchived);
-      return isValidNullableDate(value, !isArchived);
-    })
+    .withMessage("type is required")
+    .isIn(Object.values(ProjectType))
     .withMessage(
-      "archivedAt must be a valid ISO date or null when isArchived is false",
+      `type must be one of: ${Object.values(ProjectType).join(", ")}`
     ),
-  check("deletedAt")
+
+  body("isFavorite").optional().isBoolean().withMessage("isFavorite must be a boolean"),
+
+  body("startDate")
     .optional({ nullable: true })
-    .custom((value, { req }) => {
-      const isDeleted = parseBoolean(req.body.isDeleted);
-      return isValidNullableDate(value, !isDeleted);
-    })
-    .withMessage(
-      "deletedAt must be a valid ISO date or null when isDeleted is false",
-    ),
-  check("startDate").optional().isISO8601(),
-  check("dueDate").optional().isISO8601(),
-  check("lastActivityAt").optional().isISO8601(),
-  validatorMiddleware,
+    .isISO8601()
+    .withMessage("startDate must be a valid ISO 8601 date"),
+
+  body("dueDate")
+    .optional({ nullable: true })
+    .isISO8601()
+    .withMessage("dueDate must be a valid ISO 8601 date"),
 ];
 
-exports.updateProjectValidator = [
-  check("id").isMongoId().withMessage("Invalid project id"),
-  check("workspaceId").optional().isString(),
-  check("createdBy").optional().isString(),
-  check("title").optional().isLength({ min: 3, max: 128 }),
-  check("description").optional().isString(),
-  check("coverImage").optional().isString(),
-  check("emoji").optional().isString(),
-  check("icon").optional().isString(),
-  check("colorValue").optional().isInt(),
-  check("privacy").optional().isIn(Object.values(ProjectVisibility)),
-  check("status").optional().isIn(Object.values(ProjectStatus)),
-  check("priority").optional().isIn(Object.values(ProjectPriority)),
-  check("isFavorite").optional().isBoolean(),
-  check("isArchived").optional().isBoolean(),
-  check("isTemplate").optional().isBoolean(),
-  check("isDeleted").optional().isBoolean(),
-  check("tags").optional().isArray(),
-  check("attachments").optional().isArray(),
-  check("links").optional().isArray(),
-  check("members").optional().isArray(),
-  check("settings")
+// ── Update ────────────────────────────────────────────────────────────────────
+
+const updateProjectValidator = [
+  projectIdParam,
+
+  body("title")
     .optional()
-    .custom(
-      (value) =>
-        typeof value === "object" && value !== null && !Array.isArray(value),
-    )
-    .withMessage("settings must be an object"),
-  check("analytics")
+    .isString()
+    .trim()
+    .isLength({ min: 1, max: 128 })
+    .withMessage("title must be between 1 and 128 characters"),
+
+  body("description").optional().isString().trim(),
+
+  body("logo")
+    .optional({ nullable: true })
+    .isObject()
+    .withMessage("logo must be a FileModel object"),
+
+  body("color")
+    .optional({ nullable: true })
+    .isInt()
+    .withMessage("color must be an integer"),
+
+  body("privacy")
     .optional()
-    .custom(
-      (value) =>
-        typeof value === "object" && value !== null && !Array.isArray(value),
-    )
-    .withMessage("analytics must be an object"),
-  check("archivedAt")
-    .optional({ nullable: true })
-    .custom((value, { req }) => {
-      const isArchived = parseBoolean(req.body.isArchived);
-      return isValidNullableDate(value, !isArchived);
-    })
+    .isIn(Object.values(ProjectVisibility))
     .withMessage(
-      "archivedAt must be a valid ISO date or null when isArchived is false",
+      `privacy must be one of: ${Object.values(ProjectVisibility).join(", ")}`
     ),
-  check("deletedAt")
-    .optional({ nullable: true })
-    .custom((value, { req }) => {
-      const isDeleted = parseBoolean(req.body.isDeleted);
-      return isValidNullableDate(value, !isDeleted);
-    })
+
+  body("status")
+    .optional()
+    .isIn(Object.values(ProjectStatus))
     .withMessage(
-      "deletedAt must be a valid ISO date or null when isDeleted is false",
+      `status must be one of: ${Object.values(ProjectStatus).join(", ")}`
     ),
-  check("startDate").optional().isISO8601(),
-  check("dueDate").optional().isISO8601(),
-  check("lastActivityAt").optional().isISO8601(),
-  validatorMiddleware,
+
+  body("type")
+    .optional()
+    .isIn(Object.values(ProjectType))
+    .withMessage(
+      `type must be one of: ${Object.values(ProjectType).join(", ")}`
+    ),
+
+  body("isFavorite").optional().isBoolean().withMessage("isFavorite must be a boolean"),
+
+  body("startDate")
+    .optional({ nullable: true })
+    .isISO8601()
+    .withMessage("startDate must be a valid ISO 8601 date"),
+
+  body("dueDate")
+    .optional({ nullable: true })
+    .isISO8601()
+    .withMessage("dueDate must be a valid ISO 8601 date"),
 ];
 
-exports.deleteProjectValidator = [
-  check("id").isMongoId().withMessage("Invalid project id"),
-  validatorMiddleware,
+// ── Get / Delete / Archive / Restore ─────────────────────────────────────────
+
+const getProjectValidator = [projectIdParam];
+
+const deleteProjectValidator = [projectIdParam];
+
+const archiveProjectValidator = [projectIdParam];
+
+const restoreProjectValidator = [projectIdParam];
+
+// ── List / Search ─────────────────────────────────────────────────────────────
+
+const listProjectValidator = [
+  query("page")
+    .optional()
+    .isInt({ min: 0 })
+    .withMessage("page must be a non-negative integer"),
+
+  query("limit")
+    .optional()
+    .isInt({ min: 1, max: 100 })
+    .withMessage("limit must be between 1 and 100"),
+
+  query("search").optional().isString().trim(),
+
+  query("companyId")
+    .optional()
+    .isMongoId()
+    .withMessage("companyId must be a valid MongoDB ObjectId"),
+
+  query("status")
+    .optional()
+    .custom((v) => {
+      // Allow pipe-separated values: active|planned
+      const values = String(v).split("|").map((s) => s.trim());
+      return values.every((s) => Object.values(ProjectStatus).includes(s));
+    })
+    .withMessage(
+      `status must be one or more of: ${Object.values(ProjectStatus).join(", ")}`
+    ),
+
+  query("privacy")
+    .optional()
+    .isIn(Object.values(ProjectVisibility))
+    .withMessage(
+      `privacy must be one of: ${Object.values(ProjectVisibility).join(", ")}`
+    ),
+
+  query("isFavorite")
+    .optional()
+    .isBoolean()
+    .withMessage("isFavorite must be true or false"),
+
+  query("isArchived")
+    .optional()
+    .isBoolean()
+    .withMessage("isArchived must be true or false"),
+
+  query("sort")
+    .optional()
+    .isString()
+    .matches(/^[a-zA-Z_]+(:(asc|desc))?$/)
+    .withMessage("sort must be in format: field or field:asc or field:desc"),
 ];
+
+// ── Configuration ─────────────────────────────────────────────────────────────
+
+const updateProjectConfigValidator = [
+  projectIdParam,
+
+  body("settings")
+    .notEmpty()
+    .withMessage("settings is required")
+    .isObject()
+    .withMessage("settings must be an object"),
+
+  // Validate each known feature flag key is an object with an `enabled` boolean
+  body("settings.*")
+    .optional()
+    .isObject()
+    .withMessage("Each settings entry must be an object"),
+
+  body("settings.*.enabled")
+    .optional()
+    .isBoolean()
+    .withMessage("settings.*.enabled must be a boolean"),
+];
+
+// ── Stats ─────────────────────────────────────────────────────────────────────
+
+const getProjectStatsValidator = [
+  query("companyId")
+    .optional()
+    .isMongoId()
+    .withMessage("companyId must be a valid MongoDB ObjectId"),
+];
+
+// ── Exports ───────────────────────────────────────────────────────────────────
+
+module.exports = {
+  createProjectValidator,
+  updateProjectValidator,
+  getProjectValidator,
+  deleteProjectValidator,
+  archiveProjectValidator,
+  restoreProjectValidator,
+  listProjectValidator,
+  updateProjectConfigValidator,
+  getProjectStatsValidator,
+};

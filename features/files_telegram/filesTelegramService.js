@@ -323,10 +323,10 @@ exports.uploadPhoto = asyncHandler(async (req, res) => {
   res.status(200).json({
     success: true,
     data: {
-      file_size: originalPhoto.file_size,
+      size: originalPhoto.file_size,
       width: originalPhoto.width,
       height: originalPhoto.height,
-      file_url: proxyUrl,
+      url: proxyUrl,
     },
   });
 });
@@ -755,17 +755,17 @@ exports.uploadVideo = asyncHandler(async (req, res) => {
   res.status(200).json({
     success: true,
     data: {
-      file_size: video.file_size,
+      size: video.file_size,
       width: video.width,
       height: video.height,
-      file_url: proxyUrl,
+      url: proxyUrl,
       duration: video.duration,
       thumbnail: thumbnail
         ? {
-          file_size: thumbnail.file_size,
+          size: thumbnail.file_size,
           width: thumbnail.width,
           height: thumbnail.height,
-          file_url: proxyUrlThumbnail,
+          url: proxyUrlThumbnail,
         }
         : null,
     },
@@ -861,8 +861,8 @@ exports.uploadDocument = asyncHandler(async (req, res) => {
   res.status(200).json({
     success: true,
     data: {
-      file_size: document.file_size,
-      file_url: proxyUrl,
+      size: document.file_size,
+      url: proxyUrl,
     },
   });
 });

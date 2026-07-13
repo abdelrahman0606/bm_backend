@@ -3,10 +3,9 @@ const StatusService = require("./statusService");
 class StatusController {
   static async createStatus(req, res, next) {
     try {
-      const status = await StatusService.createStatus(req.body);
+      const status = await StatusService.createStatus(req.body, req.userId);
       res.status(201).json({
-        success: true,
-        message: "Status created successfully",
+        status: "success",
         data: status,
       });
     } catch (error) {
@@ -16,24 +15,28 @@ class StatusController {
 
   static async getStatuses(req, res, next) {
     try {
-      const result = await StatusService.getStatuses(req.query);
+      const filters = {
+        companyId: req.query.companyId,
+        projectId: req.query.projectId,
+        statusType: req.query.statusType,
+      };
+
+      const result = await StatusService.getStatuses(filters, req.query);
+
       res.status(200).json({
-        success: true,
-        message: "Statuses fetched successfully",
-        data: result.statuses,
-        pagination: result.pagination,
+        status: "success",
+        data: result,
       });
     } catch (error) {
       next(error);
     }
   }
 
-  static async getStatus(req, res, next) {
+  static async getStatusById(req, res, next) {
     try {
-      const status = await StatusService.getStatusById(req.params.statusId);
+      const status = await StatusService.getStatusById(req.params.id);
       res.status(200).json({
-        success: true,
-        message: "Status fetched successfully",
+        status: "success",
         data: status,
       });
     } catch (error) {
@@ -43,11 +46,23 @@ class StatusController {
 
   static async updateStatus(req, res, next) {
     try {
-      const status = await StatusService.updateStatus(req.params.statusId, req.body);
+      const status = await StatusService.updateStatus(req.params.id, req.body, req.userId);
       res.status(200).json({
-        success: true,
-        message: "Status updated successfully",
+        status: "success",
         data: status,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  static async reorderStatuses(req, res, next) {
+    try {
+      const { projectId, orderedIds } = req.body;
+      const result = await StatusService.reorderStatuses(projectId, orderedIds, req.userId);
+      res.status(200).json({
+        status: "success",
+        data: result,
       });
     } catch (error) {
       next(error);
@@ -56,10 +71,10 @@ class StatusController {
 
   static async deleteStatus(req, res, next) {
     try {
-      const result = await StatusService.deleteStatus(req.params.statusId);
+      const result = await StatusService.deleteStatus(req.params.id, req.userId);
       res.status(200).json({
-        success: true,
-        message: result.message,
+        status: "success",
+        data: result,
       });
     } catch (error) {
       next(error);

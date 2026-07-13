@@ -1,28 +1,57 @@
 const express = require("express");
-const { validationResult } = require("express-validator");
 const StatusController = require("./statusController");
+const validateResult = require("../../../middlewares/validatorMiddleware");
 const {
   createStatusValidator,
   updateStatusValidator,
-  getStatusValidator,
+  reorderStatusesValidator,
+  getStatusesValidator,
+  getStatusByIdValidator,
   deleteStatusValidator,
-  listStatusValidator,
 } = require("./statusValidator");
 
-const router = express.Router();
+const router = express.Router({ mergeParams: true });
 
-const handleValidationErrors = (req, res, next) => {
-  const errors = validationResult(req);
-  if (!errors.isEmpty()) {
-    return res.status(400).json({ errors: errors.array() });
-  }
-  next();
-};
+router.post(
+  "/",
+  createStatusValidator,
+  validateResult,
+  StatusController.createStatus
+);
 
-router.post("/", createStatusValidator, handleValidationErrors, StatusController.createStatus);
-router.get("/", listStatusValidator, handleValidationErrors, StatusController.getStatuses);
-router.get("/:statusId", getStatusValidator, handleValidationErrors, StatusController.getStatus);
-router.put("/:statusId", updateStatusValidator, handleValidationErrors, StatusController.updateStatus);
-router.delete("/:statusId", deleteStatusValidator, handleValidationErrors, StatusController.deleteStatus);
+router.get(
+  "/",
+  getStatusesValidator,
+  validateResult,
+  StatusController.getStatuses
+);
+
+router.patch(
+  "/reorder",
+  reorderStatusesValidator,
+  validateResult,
+  StatusController.reorderStatuses
+);
+
+router.get(
+  "/:id",
+  getStatusByIdValidator,
+  validateResult,
+  StatusController.getStatusById
+);
+
+router.put(
+  "/:id",
+  updateStatusValidator,
+  validateResult,
+  StatusController.updateStatus
+);
+
+router.delete(
+  "/:id",
+  deleteStatusValidator,
+  validateResult,
+  StatusController.deleteStatus
+);
 
 module.exports = router;
