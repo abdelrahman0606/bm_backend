@@ -10,6 +10,7 @@ const {
   getUpdates,
   sendMessage,
 } = require("./telegramApi");
+const FileService = require("../fileService");
 
 // MIME type mapping
 const mimeMap = {
@@ -200,12 +201,21 @@ exports.uploadPhoto = asyncHandler(async (req, res) => {
   let fileData = null;
   let fileName = null;
 
+  let id = null;
+  let category = null;
+  let entityId = null;
+  let withDatabase = false;
+
   // Parse request based on content type
   if (contentType.includes("multipart/form-data")) {
     const formData = req.body; // multer would have parsed this
     chatId = formData.chat_id || CHAT_ID;
     caption = formData.caption;
     parseMode = formData.parse_mode;
+    id = formData.id;
+    category = formData.category;
+    entityId = formData.entityId;
+    withDatabase = String(formData.withDatabase).toLowerCase() === "true";
     const requestedFileName =
       formData.file_name || formData.fileName || formData.name;
 
@@ -222,6 +232,10 @@ exports.uploadPhoto = asyncHandler(async (req, res) => {
     photoNetworkUrl = body.photoNetworkUrl || body.photo;
     caption = body.caption;
     parseMode = body.parseMode || body.parse_mode;
+    id = body.id;
+    category = body.category;
+    entityId = body.entityId;
+    withDatabase = String(body.withDatabase).toLowerCase() === "true";
   }
 
   // Validate input
@@ -281,6 +295,8 @@ exports.uploadPhoto = asyncHandler(async (req, res) => {
 
   console.log("Photo uploaded successfully");
 
+  let telegramResponseData;
+
   if (useDocumentUpload) {
     const document = result.result.document;
     console.log("Getting file info for document:", document.file_id);
@@ -293,42 +309,55 @@ exports.uploadPhoto = asyncHandler(async (req, res) => {
       document.file_name,
     );
 
-    return res.status(200).json({
-      success: true,
-      data: {
-        size: document.file_size,
-        name: document.file_name,
-        url: proxyUrl,
-        path: fileInfo.file_path,
-      },
-    });
-  }
+    telegramResponseData = {
+      size: document.file_size,
+      name: document.file_name,
+      url: proxyUrl,
+      path: fileInfo.file_path,
+      fileId: document.file_id,
+    };
+  } else {
+    // Get all photo sizes
+    const photos = result.result.photo;
+    // Get the largest photo (original quality)
+    const originalPhoto = photos[photos.length - 1];
 
-  // Get all photo sizes
-  const photos = result.result.photo;
+    console.log("Getting file info for original photo:", originalPhoto.file_id);
+    // Get file path from Telegram
+    const fileInfo = await getFileInfo(originalPhoto.file_id);
+    console.log("File info received:", fileInfo);
 
-  // Get the largest photo (original quality)
-  const originalPhoto = photos[photos.length - 1];
+    // Build proxy URL
+    const proxyUrl = buildProxyUrl(originalPhoto.file_id, fileInfo.file_path);
 
-  console.log("Getting file info for original photo:", originalPhoto.file_id);
-
-  // Get file path from Telegram
-  const fileInfo = await getFileInfo(originalPhoto.file_id);
-
-  console.log("File info received:", fileInfo);
-
-  // Build proxy URL
-  const proxyUrl = buildProxyUrl(originalPhoto.file_id, fileInfo.file_path);
-
-  res.status(200).json({
-    success: true,
-    data: {
+    telegramResponseData = {
       size: originalPhoto.file_size,
       width: originalPhoto.width,
       height: originalPhoto.height,
       url: proxyUrl,
-    },
-  });
+      path: fileInfo.file_path,
+      fileId: originalPhoto.file_id,
+    };
+  }
+
+  if (withDatabase) {
+    const finalFileName = telegramResponseData.name || fileName || "photo";
+    const dbFile = await FileService.saveTelegramFileToDatabase(
+      fileData,
+      finalFileName,
+      getMimeType(getFileExtension(finalFileName)),
+      id,
+      category,
+      entityId,
+      telegramResponseData.path || telegramResponseData.url,
+      telegramResponseData.fileId,
+      telegramResponseData.size,
+      { width: telegramResponseData.width, height: telegramResponseData.height }
+    );
+    return res.status(200).json({ success: true, data: dbFile });
+  }
+
+  return res.status(200).json({ success: true, data: telegramResponseData });
 });
 
 // Download photo route handler
@@ -670,12 +699,21 @@ exports.uploadVideo = asyncHandler(async (req, res) => {
   let fileData = null;
   let fileName = null;
 
+  let id = null;
+  let category = null;
+  let entityId = null;
+  let withDatabase = false;
+
   // Parse request based on content type
   if (contentType.includes("multipart/form-data")) {
     const formData = req.body;
     chatId = formData.chat_id;
     caption = formData.caption;
     parseMode = formData.parse_mode;
+    id = formData.id;
+    category = formData.category;
+    entityId = formData.entityId;
+    withDatabase = String(formData.withDatabase).toLowerCase() === "true";
     const requestedFileName =
       formData.file_name || formData.fileName || formData.name;
 
@@ -692,6 +730,10 @@ exports.uploadVideo = asyncHandler(async (req, res) => {
     videoNetworkUrl = body.videoNetworkUrl || body.video;
     caption = body.caption;
     parseMode = body.parseMode || body.parse_mode;
+    id = body.id;
+    category = body.category;
+    entityId = body.entityId;
+    withDatabase = String(body.withDatabase).toLowerCase() === "true";
   }
 
   // Validate input
@@ -752,24 +794,35 @@ exports.uploadVideo = asyncHandler(async (req, res) => {
     ? buildProxyUrl(video.thumbnail.file_id, thumbnail.file_path)
     : null;
 
-  res.status(200).json({
-    success: true,
-    data: {
-      size: video.file_size,
-      width: video.width,
-      height: video.height,
-      url: proxyUrl,
-      duration: video.duration,
-      thumbnail: thumbnail
-        ? {
-          size: thumbnail.file_size,
-          width: thumbnail.width,
-          height: thumbnail.height,
-          url: proxyUrlThumbnail,
-        }
-        : null,
-    },
-  });
+  const telegramResponseData = {
+    size: video.file_size,
+    width: video.width,
+    height: video.height,
+    url: proxyUrl,
+    thumbnail: proxyUrlThumbnail,
+    path: fileInfo.file_path,
+    name: video.file_name,
+    duration: video.duration,
+  };
+
+  if (withDatabase) {
+    const finalFileName = telegramResponseData.name || fileName || "video.mp4";
+    const dbFile = await FileService.saveTelegramFileToDatabase(
+      fileData,
+      finalFileName,
+      getMimeType(getFileExtension(finalFileName)),
+      id,
+      category,
+      entityId,
+      telegramResponseData.path || telegramResponseData.url,
+      video.file_id,
+      telegramResponseData.size,
+      { width: telegramResponseData.width, height: telegramResponseData.height, duration: telegramResponseData.duration }
+    );
+    return res.status(200).json({ success: true, data: dbFile });
+  }
+
+  return res.status(200).json({ success: true, data: telegramResponseData });
 });
 
 // Upload document route handler
@@ -783,12 +836,21 @@ exports.uploadDocument = asyncHandler(async (req, res) => {
   let fileData = null;
   let fileName = null;
 
+  let id = null;
+  let category = null;
+  let entityId = null;
+  let withDatabase = false;
+
   // Parse request based on content type
   if (contentType.includes("multipart/form-data")) {
     const formData = req.body;
     chatId = formData.chat_id;
     caption = formData.caption;
     parseMode = formData.parse_mode;
+    id = formData.id;
+    category = formData.category;
+    entityId = formData.entityId;
+    withDatabase = String(formData.withDatabase).toLowerCase() === "true";
     const requestedFileName =
       formData.file_name || formData.fileName || formData.name;
 
@@ -805,6 +867,10 @@ exports.uploadDocument = asyncHandler(async (req, res) => {
     documentNetworkUrl = body.documentNetworkUrl || body.document;
     caption = body.caption;
     parseMode = body.parseMode || body.parse_mode;
+    id = body.id;
+    category = body.category;
+    entityId = body.entityId;
+    withDatabase = String(body.withDatabase).toLowerCase() === "true";
   }
 
   // Validate input
@@ -858,11 +924,30 @@ exports.uploadDocument = asyncHandler(async (req, res) => {
     document.file_name,
   );
 
-  res.status(200).json({
-    success: true,
-    data: {
-      size: document.file_size,
-      url: proxyUrl,
-    },
-  });
+  const telegramResponseData = {
+    size: document.file_size,
+    url: proxyUrl,
+    name: document.file_name,
+    path: fileInfo.file_path,
+    fileId: document.file_id,
+  };
+
+  if (withDatabase) {
+    const finalFileName = telegramResponseData.name || fileName || "document";
+    const dbFile = await FileService.saveTelegramFileToDatabase(
+      fileData,
+      finalFileName,
+      getMimeType(getFileExtension(finalFileName)),
+      id,
+      category,
+      entityId,
+      telegramResponseData.path || telegramResponseData.url,
+      telegramResponseData.fileId,
+      telegramResponseData.size,
+      {}
+    );
+    return res.status(200).json({ success: true, data: dbFile });
+  }
+
+  return res.status(200).json({ success: true, data: telegramResponseData });
 });

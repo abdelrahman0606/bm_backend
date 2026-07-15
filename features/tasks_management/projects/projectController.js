@@ -29,6 +29,67 @@ class ProjectController {
     }
   }
 
+  // ── Members (by projectId query param) ───────────────────────────────────
+
+  static async getProjectMembers(req, res, next) {
+    try {
+      const { projectId } = req.query;
+      if (!projectId) {
+        return res.status(400).json({
+          success: false,
+          message: "projectId query parameter is required",
+        });
+      }
+      const result = await ProjectService.getProjectMembers(req.query);
+      return res.status(200).json({
+        success: true,
+        message: "Project members fetched successfully",
+        data: result.members,
+        pagination: result.pagination,
+      });
+    } catch (error) {
+      return next(error);
+    }
+  }
+
+  // ── Update members (bulk) ────────────────────────────────────────────────
+
+  static async updateProjectMembers(req, res, next) {
+    try {
+      const { projectId, members } = req.body;
+      if (!projectId) {
+        return res.status(400).json({ success: false, message: "projectId is required" });
+      }
+      if (!Array.isArray(members) || members.length === 0) {
+        return res.status(400).json({ success: false, message: "members array is required and must not be empty" });
+      }
+      const result = await ProjectService.updateProjectMembers(projectId, members);
+      return res.status(200).json({
+        success: true,
+        message: "Members updated successfully",
+        data: result,
+      });
+    } catch (error) {
+      return next(error);
+    }
+  }
+
+  // ── Update member (single) ───────────────────────────────────────────────
+
+  static async updateProjectMember(req, res, next) {
+    try {
+      const { memberId } = req.params;
+      const member = await ProjectService.updateProjectMember(memberId, req.body);
+      return res.status(200).json({
+        success: true,
+        message: "Member updated successfully",
+        data: member,
+      });
+    } catch (error) {
+      return next(error);
+    }
+  }
+
   // ── Single ────────────────────────────────────────────────────────────────
 
   static async getProject(req, res, next) {

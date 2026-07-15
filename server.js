@@ -17,7 +17,8 @@ require("./features/canvas/models/CanvasViewModel");
 const userRoute = require("./features/users/userRoute");
 const authRoute = require("./features/auth/authRoute");
 const tasksManagementRoute = require("./features/tasks_management/tasksManagementRoute");
-const filesTelegramRoute = require("./features/files_telegram/filesTelegramRoute");
+const filesTelegramRoute = require("./features/files/files_telegram/filesTelegramRoute");
+const filesRoute = require("./features/files/fileRoute");
 const canvasRoute = require("./features/canvas");
 const companyRoute = require("./features/companies/companyRoute");
 
@@ -49,6 +50,7 @@ app.use("/api/v1/companies", companyRoute);
 app.use("/api/v1/tasks-management", tasksManagementRoute);
 
 app.use("/api/v1/files-v2", filesTelegramRoute);
+app.use("/api/v1/files", filesRoute);
 app.use("/api/v1/canvas", canvasRoute);
 
 app.use((req, res, next) =>

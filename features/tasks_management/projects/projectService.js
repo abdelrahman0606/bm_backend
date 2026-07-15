@@ -4,6 +4,7 @@ const ProjectMemberModel = require("./projectMemberModel");
 const ApiError = require("../../../utils/apiError");
 const { ProjectMemberRole } = require("./projectEnums");
 const StatusService = require("../statuses/statusService");
+const UserModel = require("../../users/userModel");
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -33,8 +34,38 @@ function buildDefaultSettings() {
  */
 async function appendMembers(projectObj) {
   const projectId = projectObj._id ?? projectObj.id;
-  const members = await ProjectMemberModel.find({ projectId }).lean();
-  projectObj.members = members;
+  const members = await ProjectMemberModel.find({ projectId })
+    .populate({
+      path: "userId",
+      model: UserModel,
+      select: "fullName phone photo email",
+    })
+    .lean();
+
+  projectObj.members = members.map((m) => {
+    const user = m.userId && typeof m.userId === "object" ? m.userId : null;
+    let userIdStr = null;
+    if (user) {
+      userIdStr = (user._id || user.id).toString();
+    } else if (m.userId) {
+      userIdStr = m.userId.toString();
+    }
+
+    return {
+      id: m._id ? m._id.toString() : m.id,
+      userId: userIdStr,
+      fullName: user?.fullName ?? null,
+      phone: user?.phone ?? null,
+      email: user?.email ?? null,
+      photo: user?.photo ?? null,
+      role: m.role,
+      permissions: m.permissions,
+      isStarred: m.isStarred ?? false,
+      isMuted: m.isMuted ?? false,
+      joinedAt: m.joinedAt,
+      lastSeenAt: m.lastSeenAt ?? null,
+    };
+  });
   return projectObj;
 }
 
@@ -45,8 +76,9 @@ class ProjectService {
 
   static async createProject(data, userId) {
     try {
+      const { members, ...projectData } = data;
       const project = await ProjectModel.create({
-        ...data,
+        ...projectData,
         createdBy: userId,
         lastActivityAt: new Date(),
       });
@@ -57,12 +89,46 @@ class ProjectService {
         settings: buildDefaultSettings(),
       });
 
-      // Auto-add creator as owner member
-      await ProjectMemberModel.create({
-        projectId: project._id,
-        userId,
-        role: ProjectMemberRole.OWNER,
-      });
+      // Process and save members if provided in the payload
+      const membersToCreate = [];
+
+      if (Array.isArray(members)) {
+        members.forEach((m) => {
+          if (m.userId) {
+            membersToCreate.push({
+              projectId: project._id,
+              userId: m.userId,
+              role: m.role || ProjectMemberRole.MEMBER,
+              permissions: m.permissions || m.premisions || {},
+              isStarred: m.isStarred ?? false,
+              isMuted: m.isMuted ?? false,
+              joinedAt: m.joinedAt ? new Date(m.joinedAt) : new Date(),
+              lastSeenAt: m.lastSeenAt ? new Date(m.lastSeenAt) : null,
+            });
+          }
+        });
+      }
+
+      // Ensure the creator is added as OWNER if not already in the members list
+      const hasCreator = membersToCreate.some(
+        (m) => m.userId.toString() === userId.toString()
+      );
+      if (!hasCreator) {
+        membersToCreate.push({
+          projectId: project._id,
+          userId,
+          role: ProjectMemberRole.OWNER,
+          permissions: {},
+          isStarred: false,
+          isMuted: false,
+          joinedAt: new Date(),
+          lastSeenAt: null,
+        });
+      }
+
+      if (membersToCreate.length > 0) {
+        await ProjectMemberModel.insertMany(membersToCreate);
+      }
 
       // Auto-generate default statuses
       await StatusService.createDefaultStatuses(
@@ -76,6 +142,179 @@ class ProjectService {
     } catch (error) {
       if (error instanceof ApiError) throw error;
       throw new ApiError(`Failed to create project: ${error.message}`, 500);
+    }
+  }
+
+  // ── Members by projectId ──────────────────────────────────────────────────
+
+  static async getProjectMembers(query = {}) {
+    try {
+      const {
+        projectId,
+        search,
+        page: rawPage = 0,
+        limit: rawLimit = 20,
+      } = query;
+
+      const excludeUserId = query["id!"] || query["id!="] || null;
+
+      const page = Math.max(parseInt(rawPage, 10) || 0, 0);
+      const limit = Math.min(Math.max(parseInt(rawLimit, 10) || 20, 1), 100);
+
+      // ── Base filter ─────────────────────────────────────────────────────────
+      const filter = { projectId };
+
+      if (excludeUserId) {
+        filter.userId = { $ne: excludeUserId };
+      }
+
+      // ── Fetch all members with populated user data ───────────────────────────
+      // We populate first, then apply search in-memory since search is on user
+      // fields (fullName, email, phone) that live in a separate DB connection.
+      let rawMembers = await ProjectMemberModel.find(filter)
+        .populate({
+          path: "userId",
+          model: UserModel,
+          select: "fullName phone photo email",
+        })
+        .sort({ joinedAt: -1 })
+        .lean();
+
+      // ── Search (in-memory on populated user fields) ──────────────────────────
+      if (search) {
+        const term = search.toLowerCase();
+        rawMembers = rawMembers.filter((m) => {
+          const user = m.userId && typeof m.userId === "object" ? m.userId : null;
+          if (!user) return false;
+          return (
+            (user.fullName || "").toLowerCase().includes(term) ||
+            (user.email || "").toLowerCase().includes(term) ||
+            (user.phone || "").toLowerCase().includes(term)
+          );
+        });
+      }
+
+      // ── Pagination ───────────────────────────────────────────────────────────
+      const total = rawMembers.length;
+      const paginated = rawMembers.slice(page * limit, page * limit + limit);
+
+      const members = paginated.map((m) => {
+        const user = m.userId && typeof m.userId === "object" ? m.userId : null;
+        let userIdStr = null;
+        if (user) {
+          userIdStr = (user._id || user.id).toString();
+        } else if (m.userId) {
+          userIdStr = m.userId.toString();
+        }
+        return {
+          id: m._id ? m._id.toString() : m.id,
+          projectId: m.projectId ? m.projectId.toString() : null,
+          userId: userIdStr,
+          fullName: user?.fullName ?? null,
+          phone: user?.phone ?? null,
+          email: user?.email ?? null,
+          photo: user?.photo ?? null,
+          role: m.role,
+          permissions: m.permissions,
+          isStarred: m.isStarred ?? false,
+          isMuted: m.isMuted ?? false,
+          joinedAt: m.joinedAt,
+          lastSeenAt: m.lastSeenAt ?? null,
+        };
+      });
+
+      return {
+        members,
+        pagination: {
+          page,
+          limit,
+          total,
+          pages: Math.ceil(total / limit),
+        },
+      };
+    } catch (error) {
+      if (error instanceof ApiError) throw error;
+      throw new ApiError(`Failed to fetch project members: ${error.message}`, 500);
+    }
+  }
+
+  // ── Update members (bulk) ─────────────────────────────────────────────────
+
+  static async updateProjectMembers(projectId, members) {
+    try {
+      const allowedFields = ["role", "permissions", "isStarred", "isMuted", "lastSeenAt"];
+
+      const ops = members.map((m) => {
+        const $set = {};
+        allowedFields.forEach((f) => {
+          if (m[f] !== undefined) $set[f] = m[f];
+        });
+        return {
+          updateOne: {
+            filter: { projectId, userId: m.userId },
+            update: { $set },
+          },
+        };
+      });
+
+      await ProjectMemberModel.bulkWrite(ops);
+
+      // Return the fresh list for the project
+      return ProjectService.getProjectMembers({ projectId });
+    } catch (error) {
+      if (error instanceof ApiError) throw error;
+      throw new ApiError(`Failed to update members: ${error.message}`, 500);
+    }
+  }
+
+  // ── Update member (single) ────────────────────────────────────────────────
+
+  static async updateProjectMember(memberId, data) {
+    try {
+      const allowedFields = ["role", "permissions", "isStarred", "isMuted", "lastSeenAt"];
+      const $set = {};
+      allowedFields.forEach((f) => {
+        if (data[f] !== undefined) $set[f] = data[f];
+      });
+
+      const updated = await ProjectMemberModel.findByIdAndUpdate(
+        memberId,
+        { $set },
+        { new: true, runValidators: true }
+      )
+        .populate({ path: "userId", model: UserModel, select: "fullName phone photo email" })
+        .lean();
+
+      if (!updated) {
+        throw new ApiError("Member not found", 404);
+      }
+
+      const user = updated.userId && typeof updated.userId === "object" ? updated.userId : null;
+      let userIdStr = null;
+      if (user) {
+        userIdStr = (user._id || user.id).toString();
+      } else if (updated.userId) {
+        userIdStr = updated.userId.toString();
+      }
+
+      return {
+        id: updated._id ? updated._id.toString() : updated.id,
+        projectId: updated.projectId ? updated.projectId.toString() : null,
+        userId: userIdStr,
+        fullName: user?.fullName ?? null,
+        phone: user?.phone ?? null,
+        email: user?.email ?? null,
+        photo: user?.photo ?? null,
+        role: updated.role,
+        permissions: updated.permissions,
+        isStarred: updated.isStarred ?? false,
+        isMuted: updated.isMuted ?? false,
+        joinedAt: updated.joinedAt,
+        lastSeenAt: updated.lastSeenAt ?? null,
+      };
+    } catch (error) {
+      if (error instanceof ApiError) throw error;
+      throw new ApiError(`Failed to update member: ${error.message}`, 500);
     }
   }
 
@@ -168,8 +407,12 @@ class ProjectService {
         ProjectModel.countDocuments(filter),
       ]);
 
+      const projectsWithMembers = await Promise.all(
+        projects.map((p) => appendMembers(p))
+      );
+
       return {
-        projects,
+        projects: projectsWithMembers,
         pagination: {
           page,
           limit,

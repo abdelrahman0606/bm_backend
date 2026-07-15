@@ -43,6 +43,20 @@ router.get(
   ProjectController.getProjectStats
 );
 
+// GET /api/v1/tasks-management/projects/members?projectId=  — members by project
+// PUT /api/v1/tasks-management/projects/members             — bulk update members
+// (must be registered before /:projectId to avoid route conflict)
+router
+  .route("/members")
+  .get(ProjectController.getProjectMembers)
+  .put(ProjectController.updateProjectMembers);
+
+// PUT /api/v1/tasks-management/projects/members/:memberId   — update single member
+router.put(
+  "/members/:memberId",
+  ProjectController.updateProjectMember
+);
+
 // GET    /api/v1/tasks-management/projects/:projectId  — single project (with members)
 // PUT    /api/v1/tasks-management/projects/:projectId  — update
 // DELETE /api/v1/tasks-management/projects/:projectId  — soft delete

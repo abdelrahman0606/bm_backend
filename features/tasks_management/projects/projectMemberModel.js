@@ -18,6 +18,7 @@ const ProjectMemberSchema = new mongoose.Schema(
     },
     userId: {
       type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
       required: true,
     },
     role: {
@@ -26,18 +27,68 @@ const ProjectMemberSchema = new mongoose.Schema(
       default: ProjectMemberRole.MEMBER,
       required: true,
     },
-    joinedAt: { type: Date, default: Date.now },
+    permissions: {
+      type: mongoose.Schema.Types.Mixed,
+      required: true,
+    },
+    isStarred: {
+      type: Boolean,
+      default: false,
+    },
+    isMuted: {
+      type: Boolean,
+      default: false,
+    },
+    joinedAt: {
+      type: Date,
+      default: Date.now,
+      required: true,
+    },
+    lastSeenAt: {
+      type: Date,
+      default: null,
+    },
   },
   {
     timestamps: true,
-    toJSON: { virtuals: true },
-    toObject: { virtuals: true },
+    toJSON: {
+      virtuals: true,
+      transform: (doc, ret) => {
+        ret.id = ret._id;
+        delete ret._id;
+        return ret;
+      },
+    },
+    toObject: {
+      virtuals: true,
+      transform: (doc, ret) => {
+        ret.id = ret._id;
+        delete ret._id;
+        return ret;
+      },
+    },
     collection: "project_members",
   }
 );
 
 ProjectMemberSchema.virtual("id").get(function () {
   return this._id.toHexString();
+});
+
+ProjectMemberSchema.virtual("fullName").get(function () {
+  return this.userId?.fullName;
+});
+
+ProjectMemberSchema.virtual("phone").get(function () {
+  return this.userId?.phone;
+});
+
+ProjectMemberSchema.virtual("email").get(function () {
+  return this.userId?.email;
+});
+
+ProjectMemberSchema.virtual("photo").get(function () {
+  return this.userId?.photo;
 });
 
 ProjectMemberSchema.set("versionKey", false);

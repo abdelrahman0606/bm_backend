@@ -1,10 +1,7 @@
 const User = require("./userModel");
 const ApiError = require("../../utils/apiError");
 
-const buildUserResponse = async (user) => {
-  const wallet = await walletService.ensureWallet(user._id);
-
-  return {
+const buildUserResponse = async (user) => ({
     _id: user._id,
     id: user.id,
     email: user.email,
@@ -32,14 +29,10 @@ const buildUserResponse = async (user) => {
     isEmailVerified: user.isEmailVerified,
     createdAt: user.createdAt,
     updatedAt: user.updatedAt,
-    goldCoins: wallet.goldCoins,
-    silverCoins: wallet.silverCoins,
-  };
-};
+  });
 
 exports.createUser = async (userData) => {
-  const { goldCoins, silverCoins, ...safeUserData } = userData;
-  const user = await User.create(safeUserData);
+  const user = await User.create(userData);
   return buildUserResponse(user);
 };
 
@@ -63,6 +56,11 @@ exports.getAllUsers = async (query = {}) => {
   const { page = 0, limit = 10, role, status, search } = query;
 
   const filter = {};
+
+  const notEqualId = query["id!"] || query["id!="];
+  if (notEqualId) {
+    filter._id = { $ne: notEqualId };
+  }
 
   if (role) {
     filter.role = role;

@@ -1,5 +1,5 @@
 const { check } = require("express-validator");
-const validatorMiddleware = require("../../middlewares/validatorMiddleware");
+const validatorMiddleware = require("../../../middlewares/validatorMiddleware");
 
 // Upload photo validator
 exports.uploadPhotoValidator = [
@@ -20,6 +20,13 @@ exports.uploadPhotoValidator = [
     .optional()
     .isIn(["Markdown", "HTML"])
     .withMessage("parseMode must be Markdown or HTML"),
+  check("withDatabase")
+    .optional()
+    .isBoolean()
+    .withMessage("withDatabase must be a boolean (true or false)"),
+  check("id").optional().isString().withMessage("id must be a string"),
+  check("category").optional().isString(),
+  check("entityId").optional().isString(),
   validatorMiddleware,
 ];
 
@@ -104,6 +111,13 @@ exports.uploadVideoValidator = [
     .optional()
     .isIn(["Markdown", "HTML"])
     .withMessage("parseMode must be Markdown or HTML"),
+  check("withDatabase")
+    .optional()
+    .isBoolean()
+    .withMessage("withDatabase must be a boolean (true or false)"),
+  check("id").optional().isString().withMessage("id must be a string"),
+  check("category").optional().isString(),
+  check("entityId").optional().isString(),
   validatorMiddleware,
 ];
 
@@ -126,5 +140,12 @@ exports.uploadDocumentValidator = [
     .optional()
     .isIn(["Markdown", "HTML"])
     .withMessage("parseMode must be Markdown or HTML"),
+  check("withDatabase")
+    .optional()
+    .isBoolean()
+    .withMessage("withDatabase must be a boolean (true or false)"),
+  check("id").optional().isString().withMessage("id must be a string"),
+  check("category").optional().isString(),
+  check("entityId").optional().isString(),
   validatorMiddleware,
 ];
