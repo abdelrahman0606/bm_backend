@@ -52,14 +52,11 @@ const fileSchema = new mongoose.Schema(
       type: String,
       required: true,
     },
-    category: {
+    entityType: {
       type: String,
       default: null,
     },
-    entityId: {
-      type: String,
-      default: null,
-    },
+
     size: {
       type: Number,
       required: true,
@@ -71,6 +68,11 @@ const fileSchema = new mongoose.Schema(
     customMetadata: {
       type: Map,
       of: mongoose.Schema.Types.Mixed,
+      default: {},
+    },
+    scope: {
+      type: Map,
+      of: String,
       default: {},
     },
   },
@@ -99,6 +101,13 @@ const fileSchema = new mongoose.Schema(
 );
 
 const FileModel = mongoose.model("File", fileSchema);
+
+// Scope indexes for fast hierarchical filtering
+fileSchema.index({ "scope.company": 1 });
+fileSchema.index({ "scope.project": 1 });
+fileSchema.index({ "scope.issue": 1 });
+fileSchema.index({ "scope.comment": 1 });
+fileSchema.index({ "scope.sprint": 1 });
 
 module.exports = {
   FileModel,

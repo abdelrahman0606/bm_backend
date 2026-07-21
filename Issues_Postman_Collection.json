@@ -1,0 +1,408 @@
+{
+  "info": {
+    "_postman_id": "b2e7d1f3-4c8a-4e1b-9d2c-a5f6e3b8c9d4",
+    "name": "Issues API",
+    "description": "Full Postman collection for the Issues feature.\n\nBase URL variable: {{baseUrl}} (e.g. http://localhost:8000)\nAuth token variable: {{token}}\n\nCollection variables:\n  - baseUrl      → http://localhost:8000\n  - token        → Your JWT token\n  - companyId    → Target company ID\n  - projectId    → Target project ID\n  - issueId      → Target issue ID\n  - statusId     → Target status ID\n  - sprintId     → Target sprint ID\n  - userId       → Target user ID (for watchers)\n  - itemId       → Checklist item ID\n\nBase path: /api/v1/tasks-management/issues\n\nFolders:\n  1. CRUD           — Create, Get, Update, Delete, Archive, Restore, Duplicate\n  2. Move & Reorder — Move Status, Move Sprint, Reorder\n  3. Watchers       — Get, Add, Remove\n  4. Checklist      — Add, Update, Delete",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl",   "value": "http://localhost:8000", "type": "string" },
+    { "key": "token",     "value": "YOUR_JWT_TOKEN_HERE",   "type": "string" },
+    { "key": "companyId", "value": "REPLACE_WITH_COMPANY_ID", "type": "string" },
+    { "key": "projectId", "value": "REPLACE_WITH_PROJECT_ID", "type": "string" },
+    { "key": "issueId",   "value": "REPLACE_WITH_ISSUE_ID",   "type": "string" },
+    { "key": "statusId",  "value": "REPLACE_WITH_STATUS_ID",  "type": "string" },
+    { "key": "sprintId",  "value": "REPLACE_WITH_SPRINT_ID",  "type": "string" },
+    { "key": "userId",    "value": "REPLACE_WITH_USER_ID",    "type": "string" },
+    { "key": "itemId",    "value": "REPLACE_WITH_ITEM_ID",    "type": "string" }
+  ],
+  "item": [
+
+    {
+      "name": "CRUD",
+      "item": [
+
+        {
+          "name": "Create Issue",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type",  "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": {
+              "raw":  "{{baseUrl}}/api/v1/tasks-management/issues",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "tasks-management", "issues"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"companyId\": \"{{companyId}}\",\n  \"projectId\": \"{{projectId}}\",\n  \"title\": \"Fix login button on mobile\",\n  \"description\": \"The login button is not tappable on small screens.\",\n  \"type\": \"bug\",\n  \"priority\": \"high\",\n  \"visibility\": \"team\",\n  \"statusId\": \"{{statusId}}\",\n  \"sprintId\": \"{{sprintId}}\",\n  \"parentId\": null,\n  \"assignedTo\": [],\n  \"tags\": [\"mobile\", \"ui\"],\n  \"links\": [\n    { \"title\": \"Figma design\", \"url\": \"https://figma.com/file/example\" }\n  ],\n  \"storyPoints\": 3,\n  \"progress\": 0,\n  \"order\": 0,\n  \"startDate\": \"2026-07-20T00:00:00.000Z\",\n  \"dueDate\": \"2026-07-30T00:00:00.000Z\",\n  \"timeTracking\": {\n    \"estimate\": 120\n  }\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "description": "Creates a new issue.\n\nRequired fields:\n  - companyId  (string)\n  - projectId  (MongoDB ObjectId)\n  - title      (1–300 chars)\n\nOptional fields:\n  - description\n  - type        → task | bug | story | epic | feature | improvement | subTask  (default: task)\n  - priority    → lowest | low | medium | high | highest | critical              (default: medium)\n  - visibility  → public | private | team                                        (default: team)\n  - statusId    — must belong to the same project\n  - sprintId    — must belong to the same project\n  - milestoneId\n  - parentId    — must belong to the same project\n  - assignedTo  — array of user ID strings; all must be project members\n  - tags        — array of strings\n  - links       — array of { title, url }\n  - storyPoints\n  - progress    (0–100)\n  - order\n  - startDate, dueDate  (ISO 8601)\n  - timeTracking.estimate  (minutes)\n\nValidations:\n  ✔ Project must exist and not be deleted\n  ✔ Status must belong to the project\n  ✔ Sprint must belong to the project\n  ✔ Parent issue must be in the same project\n  ✔ All assignees must be project members\n\nActivity logged: create"
+          },
+          "response": []
+        },
+
+        {
+          "name": "Get Issues",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": {
+              "raw":  "{{baseUrl}}/api/v1/tasks-management/issues?companyId={{companyId}}&projectId={{projectId}}&page=1&limit=20",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "tasks-management", "issues"],
+              "query": [
+                { "key": "companyId",  "value": "{{companyId}}", "description": "Filter by company (string)" },
+                { "key": "projectId",  "value": "{{projectId}}", "description": "Filter by project (ObjectId)" },
+                { "key": "sprintId",   "value": "",              "description": "Filter by sprint (ObjectId)",      "disabled": true },
+                { "key": "milestoneId","value": "",              "description": "Filter by milestone (ObjectId)",   "disabled": true },
+                { "key": "statusId",   "value": "",              "description": "Filter by status column (ObjectId)","disabled": true },
+                { "key": "assignedTo", "value": "",              "description": "Filter by assignee userId (string)","disabled": true },
+                { "key": "createdBy",  "value": "",              "description": "Filter by creator userId (string)", "disabled": true },
+                { "key": "watcher",    "value": "",              "description": "Filter issues watched by userId",   "disabled": true },
+                { "key": "parentId",   "value": "",              "description": "Filter child issues by parent ObjectId","disabled": true },
+                { "key": "type",       "value": "bug",           "description": "task | bug | story | epic | feature | improvement | subTask","disabled": true },
+                { "key": "priority",   "value": "high",          "description": "lowest | low | medium | high | highest | critical","disabled": true },
+                { "key": "tags",       "value": "mobile,ui",     "description": "Comma-separated tag list (matches ANY)","disabled": true },
+                { "key": "archived",   "value": "false",         "description": "false (default) | true | only","disabled": true },
+                { "key": "deleted",    "value": "false",         "description": "false (default) | true | only","disabled": true },
+                { "key": "search",     "value": "",              "description": "Case-insensitive search in title and description","disabled": true },
+                { "key": "sortBy",     "value": "createdAt",     "description": "createdAt | updatedAt | dueDate | startDate | priority | order | title | type | progress | storyPoints","disabled": true },
+                { "key": "sortOrder",  "value": "desc",          "description": "asc | desc","disabled": true },
+                { "key": "page",       "value": "1",             "description": "1-based page number" },
+                { "key": "limit",      "value": "20",            "description": "Items per page (max 100)" }
+              ]
+            },
+            "description": "Returns a paginated, filtered, sortable list of issues.\n\nAll filter params are optional. Defaults:\n  - archived = false  (archived issues excluded)\n  - deleted  = false  (deleted issues excluded)\n  - sortBy   = createdAt\n  - sortOrder = desc\n  - page = 1, limit = 20\n\nUse archived=only or deleted=only to list only those records.\nUse archived=true or deleted=true to include them alongside normal records.\n\nThe `tags` param accepts a comma-separated list and matches issues that have ANY of those tags."
+          },
+          "response": []
+        },
+
+        {
+          "name": "Get Issue By ID",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": {
+              "raw":  "{{baseUrl}}/api/v1/tasks-management/issues/{{issueId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "tasks-management", "issues", "{{issueId}}"]
+            },
+            "description": "Returns a single issue by its MongoDB ObjectId.\n\nReturns 404 if the issue does not exist or is soft-deleted."
+          },
+          "response": []
+        },
+
+        {
+          "name": "Update Issue",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Content-Type",  "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": {
+              "raw":  "{{baseUrl}}/api/v1/tasks-management/issues/{{issueId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "tasks-management", "issues", "{{issueId}}"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Updated issue title\",\n  \"description\": \"Updated description.\",\n  \"type\": \"feature\",\n  \"priority\": \"medium\",\n  \"visibility\": \"team\",\n  \"statusId\": \"{{statusId}}\",\n  \"sprintId\": \"{{sprintId}}\",\n  \"assignedTo\": [\"{{userId}}\"],\n  \"tags\": [\"backend\", \"api\"],\n  \"storyPoints\": 5,\n  \"progress\": 30,\n  \"order\": 2,\n  \"startDate\": \"2026-07-21T00:00:00.000Z\",\n  \"dueDate\": \"2026-08-01T00:00:00.000Z\",\n  \"timeTracking\": {\n    \"estimate\": 180,\n    \"logged\": 60,\n    \"remaining\": 120\n  }\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "description": "Updates one or more fields of an issue.\n\nAll fields are optional — send only what you want to change.\n\nUpdatable fields:\n  title, description, type, priority, visibility,\n  statusId, sprintId, milestoneId, parentId,\n  assignedTo, tags, links,\n  dependencies, blockedBy, nextTaskIds,\n  timeTracking { estimate, logged, remaining },\n  storyPoints, progress, order,\n  startDate, dueDate\n\nAutomatically logs targeted activity events when:\n  - statusId  changes  → change_status activity\n  - priority  changes  → change_priority activity\n  - sprintId  changes  → change_sprint activity\n  - assignedTo changes → assign / unassign activities\nPlus a generic 'update' activity is always logged.\n\nlastActivityAt is updated automatically."
+          },
+          "response": []
+        },
+
+        {
+          "name": "Delete Issue (Soft)",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": {
+              "raw":  "{{baseUrl}}/api/v1/tasks-management/issues/{{issueId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "tasks-management", "issues", "{{issueId}}"]
+            },
+            "description": "Soft-deletes an issue.\n\nSets deletedAt = now. Issue is excluded from all list queries by default.\nData is preserved in MongoDB.\nCan be restored via the Restore endpoint.\n\nActivity logged: delete"
+          },
+          "response": []
+        },
+
+        {
+          "name": "Archive Issue",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": {
+              "raw":  "{{baseUrl}}/api/v1/tasks-management/issues/{{issueId}}/archive",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "tasks-management", "issues", "{{issueId}}", "archive"]
+            },
+            "description": "Archives an issue.\n\nSets archivedAt = now. The issue is excluded from default list queries.\nReturns 400 if the issue is already archived.\n\nNote: archive and delete are independent states (separate fields).\n\nActivity logged: archive"
+          },
+          "response": []
+        },
+
+        {
+          "name": "Restore Issue",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": {
+              "raw":  "{{baseUrl}}/api/v1/tasks-management/issues/{{issueId}}/restore",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "tasks-management", "issues", "{{issueId}}", "restore"]
+            },
+            "description": "Restores a soft-deleted or archived issue.\n\nClears both deletedAt and archivedAt.\nReturns 400 if the issue is neither deleted nor archived.\n\nActivity logged: restore"
+          },
+          "response": []
+        },
+
+        {
+          "name": "Duplicate Issue",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": {
+              "raw":  "{{baseUrl}}/api/v1/tasks-management/issues/{{issueId}}/duplicate",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "tasks-management", "issues", "{{issueId}}", "duplicate"]
+            },
+            "description": "Creates a deep clone of an existing issue.\n\nThe clone:\n  - Appends \" (Copy)\" to the title\n  - Resets all date fields (startDate, dueDate, completedAt) to null\n  - Resets progress to 0\n  - Resets order to source.order + 1\n  - Copies checklist items (all reset to uncompleted)\n  - Sets createdBy to the authenticated user\n\nReturns the new cloned issue.\n\nActivity logged: duplicate"
+          },
+          "response": []
+        }
+
+      ]
+    },
+
+    {
+      "name": "Move & Reorder",
+      "item": [
+
+        {
+          "name": "Move Issue to Status",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Content-Type",  "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": {
+              "raw":  "{{baseUrl}}/api/v1/tasks-management/issues/{{issueId}}/status",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "tasks-management", "issues", "{{issueId}}", "status"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"statusId\": \"{{statusId}}\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "description": "Moves an issue to a different status column (Kanban/Scrum board drag-and-drop).\n\nRequired:\n  - statusId  (ObjectId) — must belong to the same project as the issue\n\nValidation:\n  ✔ Status must belong to the issue's project\n\nActivity logged: change_status"
+          },
+          "response": []
+        },
+
+        {
+          "name": "Move Issue to Sprint",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Content-Type",  "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": {
+              "raw":  "{{baseUrl}}/api/v1/tasks-management/issues/{{issueId}}/sprint",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "tasks-management", "issues", "{{issueId}}", "sprint"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"sprintId\": \"{{sprintId}}\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "description": "Moves an issue to a different sprint.\n\nRequired:\n  - sprintId (ObjectId) — must belong to the same project.\n    Send null to move the issue to the backlog.\n\nValidation:\n  ✔ Sprint must belong to the issue's project\n\nActivity logged: change_sprint"
+          },
+          "response": []
+        },
+
+        {
+          "name": "Reorder Issues",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Content-Type",  "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": {
+              "raw":  "{{baseUrl}}/api/v1/tasks-management/issues/reorder",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "tasks-management", "issues", "reorder"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"items\": [\n    { \"id\": \"ISSUE_ID_1\", \"order\": 0 },\n    { \"id\": \"ISSUE_ID_2\", \"order\": 1 },\n    { \"id\": \"ISSUE_ID_3\", \"order\": 2 }\n  ]\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "description": "Bulk-updates the `order` field for multiple issues in a single request.\n\nUse this after a drag-and-drop reorder inside a status column or backlog.\n\nRequired:\n  - items  (array, min 1 element)\n    - id    (ObjectId) — the issue to update\n    - order (integer ≥ 0) — the new position index\n\nUses MongoDB bulkWrite for efficiency.\nReturns { reordered: N } where N is the number of issues updated."
+          },
+          "response": []
+        }
+
+      ]
+    },
+
+    {
+      "name": "Watchers",
+      "item": [
+
+        {
+          "name": "Get Watchers",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": {
+              "raw":  "{{baseUrl}}/api/v1/tasks-management/issues/{{issueId}}/watchers",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "tasks-management", "issues", "{{issueId}}", "watchers"]
+            },
+            "description": "Returns all watchers for a given issue.\n\nWatchers are stored in the separate `task_watchers` collection (not embedded in the Issue document).\nEach record contains: issueId, userId, createdAt."
+          },
+          "response": []
+        },
+
+        {
+          "name": "Add Watcher",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type",  "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": {
+              "raw":  "{{baseUrl}}/api/v1/tasks-management/issues/{{issueId}}/watchers",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "tasks-management", "issues", "{{issueId}}", "watchers"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"userId\": \"{{userId}}\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "description": "Adds a watcher to an issue.\n\nOptional body:\n  - userId  — the user to add as a watcher.\n              Defaults to the authenticated user if omitted.\n\nNo-op (upsert) if the user is already watching the issue.\n\nActivity logged: add_watcher"
+          },
+          "response": []
+        },
+
+        {
+          "name": "Remove Watcher",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": {
+              "raw":  "{{baseUrl}}/api/v1/tasks-management/issues/{{issueId}}/watchers/{{userId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "tasks-management", "issues", "{{issueId}}", "watchers", "{{userId}}"]
+            },
+            "description": "Removes a specific user from the issue's watcher list.\n\nPath params:\n  - issueId  — the issue\n  - userId   — the watcher to remove\n\nActivity logged: remove_watcher"
+          },
+          "response": []
+        }
+
+      ]
+    },
+
+    {
+      "name": "Checklist",
+      "item": [
+
+        {
+          "name": "Add Checklist Item",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type",  "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": {
+              "raw":  "{{baseUrl}}/api/v1/tasks-management/issues/{{issueId}}/checklist",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "tasks-management", "issues", "{{issueId}}", "checklist"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Write unit tests\",\n  \"order\": 0\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "description": "Adds a checklist item to an issue.\n\nChecklist items are embedded directly in the Issue document (atomic save).\n\nRequired:\n  - title  (1–500 chars)\n\nOptional:\n  - order  (integer ≥ 0) — defaults to current checklist length (appended)\n\nActivity logged: add_checklist"
+          },
+          "response": []
+        },
+
+        {
+          "name": "Update Checklist Item",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Content-Type",  "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": {
+              "raw":  "{{baseUrl}}/api/v1/tasks-management/issues/{{issueId}}/checklist/{{itemId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "tasks-management", "issues", "{{issueId}}", "checklist", "{{itemId}}"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Write unit tests (updated)\",\n  \"completed\": true,\n  \"order\": 1\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "description": "Updates a checklist item embedded in an issue.\n\nPath params:\n  - issueId — the parent issue\n  - itemId  — the checklist item ObjectId\n\nAll body fields are optional:\n  - title      (1–500 chars)\n  - completed  (boolean) — when set to true, completedBy is automatically set to the auth user\n  - order      (integer ≥ 0)\n\nActivity logged: update_checklist"
+          },
+          "response": []
+        },
+
+        {
+          "name": "Delete Checklist Item",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": {
+              "raw":  "{{baseUrl}}/api/v1/tasks-management/issues/{{issueId}}/checklist/{{itemId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "tasks-management", "issues", "{{issueId}}", "checklist", "{{itemId}}"]
+            },
+            "description": "Deletes a checklist item from an issue.\n\nPath params:\n  - issueId — the parent issue\n  - itemId  — the checklist item ObjectId\n\nReturns 404 if the item is not found.\n\nActivity logged: delete_checklist"
+          },
+          "response": []
+        }
+
+      ]
+    }
+
+  ]
+}

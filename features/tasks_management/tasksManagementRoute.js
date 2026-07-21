@@ -12,6 +12,7 @@ const timeLogRoute = require("./timelogs/timeLogRoute");
 const versionRoute = require("./versions/versionRoute");
 const componentRoute = require("./components/componentRoute");
 const activityRoute = require("./activities/activityRoute");
+const commentRoute = require("./comments/commentRoute");
 
 const router = express.Router();
 
@@ -48,5 +49,6 @@ router.use("/components", componentRoute);
 router.use("/issues", issueRoute);
 router.use("/tasks", issueRoute); // legacy support
 router.use("/activities", activityRoute);
+router.use("/comments", commentRoute);
 
 module.exports = router;

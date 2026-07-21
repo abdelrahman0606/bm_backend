@@ -1,426 +1,257 @@
 const express = require("express");
 const { validationResult } = require("express-validator");
-const IssueService = require("./issueService");
-const ApiError = require("../../../utils/apiError");
+const IssueController = require("./issueController");
 const {
   createIssueValidator,
   updateIssueValidator,
+  moveStatusValidator,
+  moveSprintValidator,
+  reorderIssuesValidator,
+  checklistItemValidator,
+  updateChecklistItemValidator,
   issueIdValidator,
   issueQueryValidator,
+  projectStatsValidator,
+  assignIssueValidator,
 } = require("./issueValidator");
 
 const router = express.Router();
 
-const handleValidationErrors = (req, res, next) => {
+// ── Validation middleware ─────────────────────────────────────────────────────
+
+const validate = (req, res, next) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
-    return res.status(400).json({ errors: errors.array() });
+    return res.status(400).json({
+      success: false,
+      message: "Validation failed",
+      errors:  errors.array(),
+    });
   }
-  next();
+  return next();
 };
 
+// ── Issue CRUD ────────────────────────────────────────────────────────────────
+
+/**
+ * POST /issues
+ * Create a new issue.
+ */
 router.post(
   "/",
   createIssueValidator,
-  handleValidationErrors,
-  async (req, res) => {
-    try {
-      const userId = req.user?.id || req.body.reporterId;
-      const issue = await IssueService.createIssue(req.body, userId);
-      res.status(201).json({
-        success: true,
-        message: "Issue created successfully",
-        data: issue,
-      });
-    } catch (error) {
-      if (error instanceof ApiError) {
-        return res.status(error.statusCode).json({ success: false, message: error.message });
-      }
-      res.status(500).json({ success: false, message: error.message });
-    }
-  },
+  validate,
+  IssueController.createIssue
 );
 
+/**
+ * GET /issues
+ * Get all issues with filters, pagination and sorting.
+ */
 router.get(
   "/",
   issueQueryValidator,
-  handleValidationErrors,
-  async (req, res) => {
-    try {
-      const result = await IssueService.getIssues(req.query);
-      res.status(200).json({
-        success: true,
-        message: "Issues fetched successfully",
-        data: result.issues,
-        pagination: result.pagination,
-      });
-    } catch (error) {
-      if (error instanceof ApiError) {
-        return res.status(error.statusCode).json({ success: false, message: error.message });
-      }
-      res.status(500).json({ success: false, message: error.message });
-    }
-  },
+  validate,
+  IssueController.getIssues
 );
 
+/**
+ * PATCH /issues/reorder
+ * Bulk reorder issues within a status column.
+ * NOTE: must be defined before /:issueId routes.
+ */
+router.patch(
+  "/reorder",
+  reorderIssuesValidator,
+  validate,
+  IssueController.reorderIssues
+);
+
+/**
+ * GET /issues/project/:projectId/stats
+ * Get issue statistics for a specific project.
+ */
 router.get(
-  "/stats",
-  issueQueryValidator,
-  handleValidationErrors,
-  async (req, res) => {
-    try {
-      const stats = await IssueService.getIssueStats(req.query);
-      res.status(200).json({
-        success: true,
-        message: "Issue statistics fetched successfully",
-        data: stats,
-      });
-    } catch (error) {
-      if (error instanceof ApiError) {
-        return res.status(error.statusCode).json({ success: false, message: error.message });
-      }
-      res.status(500).json({ success: false, message: error.message });
-    }
-  },
+  "/project/:projectId/stats",
+  projectStatsValidator,
+  validate,
+  IssueController.getProjectIssueStats
 );
 
+/**
+ * GET /issues/:issueId
+ * Get a single issue by ID.
+ */
 router.get(
   "/:issueId",
   issueIdValidator,
-  handleValidationErrors,
-  async (req, res) => {
-    try {
-      const issue = await IssueService.getIssueById(req.params.issueId);
-      res.status(200).json({
-        success: true,
-        message: "Issue fetched successfully",
-        data: issue,
-      });
-    } catch (error) {
-      if (error instanceof ApiError) {
-        return res.status(error.statusCode).json({ success: false, message: error.message });
-      }
-      res.status(500).json({ success: false, message: error.message });
-    }
-  },
+  validate,
+  IssueController.getIssueById
 );
 
+/**
+ * PUT /issues/:issueId
+ * Update issue fields.
+ */
 router.put(
   "/:issueId",
   updateIssueValidator,
-  handleValidationErrors,
-  async (req, res) => {
-    try {
-      const userId = req.user?.id;
-      const issue = await IssueService.updateIssue(req.params.issueId, req.body, userId);
-      res.status(200).json({
-        success: true,
-        message: "Issue updated successfully",
-        data: issue,
-      });
-    } catch (error) {
-      if (error instanceof ApiError) {
-        return res.status(error.statusCode).json({ success: false, message: error.message });
-      }
-      res.status(500).json({ success: false, message: error.message });
-    }
-  },
+  validate,
+  IssueController.updateIssue
 );
 
-router.patch(
-  "/:issueId/archive",
-  issueIdValidator,
-  handleValidationErrors,
-  async (req, res) => {
-    try {
-      const issue = await IssueService.archiveIssue(req.params.issueId);
-      res.status(200).json({
-        success: true,
-        message: "Issue archived successfully",
-        data: issue,
-      });
-    } catch (error) {
-      if (error instanceof ApiError) {
-        return res.status(error.statusCode).json({ success: false, message: error.message });
-      }
-      res.status(500).json({ success: false, message: error.message });
-    }
-  },
-);
-
-router.patch(
-  "/:issueId/restore",
-  issueIdValidator,
-  handleValidationErrors,
-  async (req, res) => {
-    try {
-      const issue = await IssueService.restoreIssue(req.params.issueId);
-      res.status(200).json({
-        success: true,
-        message: "Issue restored successfully",
-        data: issue,
-      });
-    } catch (error) {
-      if (error instanceof ApiError) {
-        return res.status(error.statusCode).json({ success: false, message: error.message });
-      }
-      res.status(500).json({ success: false, message: error.message });
-    }
-  },
-);
-
+/**
+ * DELETE /issues/:issueId
+ * Soft-delete an issue.
+ */
 router.delete(
   "/:issueId",
   issueIdValidator,
-  handleValidationErrors,
-  async (req, res) => {
-    try {
-      const issue = await IssueService.deleteIssue(req.params.issueId);
-      res.status(200).json({
-        success: true,
-        message: "Issue deleted successfully",
-        data: issue,
-      });
-    } catch (error) {
-      if (error instanceof ApiError) {
-        return res.status(error.statusCode).json({ success: false, message: error.message });
-      }
-      res.status(500).json({ success: false, message: error.message });
-    }
-  },
+  validate,
+  IssueController.deleteIssue
 );
 
-router.delete(
-  "/:issueId/permanent",
+// ── Specialized Actions ───────────────────────────────────────────────────────
+
+/**
+ * PATCH /issues/:issueId/archive
+ * Archive an issue.
+ */
+router.patch(
+  "/:issueId/archive",
   issueIdValidator,
-  handleValidationErrors,
-  async (req, res) => {
-    try {
-      const result = await IssueService.permanentlyDeleteIssue(req.params.issueId);
-      res.status(200).json({
-        success: true,
-        message: result.message,
-      });
-    } catch (error) {
-      if (error instanceof ApiError) {
-        return res.status(error.statusCode).json({ success: false, message: error.message });
-      }
-      res.status(500).json({ success: false, message: error.message });
-    }
-  },
+  validate,
+  IssueController.archiveIssue
 );
 
+/**
+ * PATCH /issues/:issueId/restore
+ * Restore a deleted or archived issue.
+ */
+router.patch(
+  "/:issueId/restore",
+  issueIdValidator,
+  validate,
+  IssueController.restoreIssue
+);
+
+/**
+ * POST /issues/:issueId/duplicate
+ * Duplicate an issue.
+ */
+router.post(
+  "/:issueId/duplicate",
+  issueIdValidator,
+  validate,
+  IssueController.duplicateIssue
+);
+
+/**
+ * PATCH /issues/:issueId/status
+ * Move an issue to a different status column.
+ */
+router.patch(
+  "/:issueId/status",
+  moveStatusValidator,
+  validate,
+  IssueController.moveStatus
+);
+
+/**
+ * PATCH /issues/:issueId/sprint
+ * Move an issue to a different sprint (or backlog when sprintId is null).
+ */
+router.patch(
+  "/:issueId/sprint",
+  moveSprintValidator,
+  validate,
+  IssueController.moveSprint
+);
+
+// ── Watchers ──────────────────────────────────────────────────────────────────
+
+/**
+ * PATCH /issues/:issueId/assignee
+ * Change the assigned user of an issue.
+ */
+router.patch(
+  "/:issueId/assignee",
+  assignIssueValidator,
+  validate,
+  IssueController.assignIssue
+);
+
+/**
+ * GET /issues/:issueId/watchers
+ * Get all watchers for an issue.
+ */
+router.get(
+  "/:issueId/watchers",
+  issueIdValidator,
+  validate,
+  IssueController.getWatchers
+);
+
+/**
+ * POST /issues/:issueId/watchers
+ * Add a watcher to an issue.
+ */
+router.post(
+  "/:issueId/watchers",
+  issueIdValidator,
+  validate,
+  IssueController.addWatcher
+);
+
+/**
+ * DELETE /issues/:issueId/watchers/:userId
+ * Remove a watcher from an issue.
+ */
+router.delete(
+  "/:issueId/watchers/:userId",
+  issueIdValidator,
+  validate,
+  IssueController.removeWatcher
+);
+
+// ── Checklist ─────────────────────────────────────────────────────────────────
+
+/**
+ * POST /issues/:issueId/checklist
+ * Add a checklist item to an issue.
+ */
 router.post(
   "/:issueId/checklist",
-  issueIdValidator,
-  handleValidationErrors,
-  async (req, res) => {
-    try {
-      const userId = req.user?.id;
-      const item = await IssueService.addChecklistItem(req.params.issueId, req.body, userId);
-      res.status(201).json({
-        success: true,
-        message: "Checklist item added",
-        data: item,
-      });
-    } catch (error) {
-      if (error instanceof ApiError) return res.status(error.statusCode).json({ success: false, message: error.message });
-      res.status(500).json({ success: false, message: error.message });
-    }
-  }
+  checklistItemValidator,
+  validate,
+  IssueController.addChecklistItem
 );
 
+/**
+ * PUT /issues/:issueId/checklist/:itemId
+ * Update a checklist item.
+ */
 router.put(
   "/:issueId/checklist/:itemId",
-  handleValidationErrors,
-  async (req, res) => {
-    try {
-      const userId = req.user?.id;
-      const item = await IssueService.updateChecklistItem(req.params.issueId, req.params.itemId, { ...req.body, completedBy: userId }, userId);
-      res.status(200).json({
-        success: true,
-        message: "Checklist item updated",
-        data: item,
-      });
-    } catch (error) {
-      if (error instanceof ApiError) return res.status(error.statusCode).json({ success: false, message: error.message });
-      res.status(500).json({ success: false, message: error.message });
-    }
-  }
+  updateChecklistItemValidator,
+  validate,
+  IssueController.updateChecklistItem
 );
 
+/**
+ * DELETE /issues/:issueId/checklist/:itemId
+ * Delete a checklist item.
+ */
 router.delete(
   "/:issueId/checklist/:itemId",
-  handleValidationErrors,
-  async (req, res) => {
-    try {
-      const result = await IssueService.deleteChecklistItem(req.params.issueId, req.params.itemId);
-      res.status(200).json({
-        success: true,
-        message: result.message,
-      });
-    } catch (error) {
-      if (error instanceof ApiError) return res.status(error.statusCode).json({ success: false, message: error.message });
-      res.status(500).json({ success: false, message: error.message });
-    }
-  }
-);
-
-router.post(
-  "/:issueId/comments",
   issueIdValidator,
-  handleValidationErrors,
-  async (req, res) => {
-    try {
-      const userId = req.user?.id;
-      const comment = await IssueService.addComment(req.params.issueId, req.body, userId);
-      res.status(201).json({
-        success: true,
-        message: "Comment added",
-        data: comment,
-      });
-    } catch (error) {
-      if (error instanceof ApiError) return res.status(error.statusCode).json({ success: false, message: error.message });
-      res.status(500).json({ success: false, message: error.message });
-    }
-  }
+  validate,
+  IssueController.deleteChecklistItem
 );
 
-router.put(
-  "/:issueId/comments/:commentId",
-  handleValidationErrors,
-  async (req, res) => {
-    try {
-      const comment = await IssueService.updateComment(req.params.issueId, req.params.commentId, req.body);
-      res.status(200).json({
-        success: true,
-        message: "Comment updated",
-        data: comment,
-      });
-    } catch (error) {
-      if (error instanceof ApiError) return res.status(error.statusCode).json({ success: false, message: error.message });
-      res.status(500).json({ success: false, message: error.message });
-    }
-  }
-);
-
-router.delete(
-  "/:issueId/comments/:commentId",
-  handleValidationErrors,
-  async (req, res) => {
-    try {
-      const result = await IssueService.deleteComment(req.params.issueId, req.params.commentId);
-      res.status(200).json({
-        success: true,
-        message: result.message,
-      });
-    } catch (error) {
-      if (error instanceof ApiError) return res.status(error.statusCode).json({ success: false, message: error.message });
-      res.status(500).json({ success: false, message: error.message });
-    }
-  }
-);
-
-router.patch(
-  "/:issueId/progress",
-  issueIdValidator,
-  handleValidationErrors,
-  async (req, res) => {
-    try {
-      const { progress } = req.body;
-      const issue = await IssueService.updateTaskProgress(req.params.issueId, progress);
-      res.status(200).json({
-        success: true,
-        message: "Progress updated",
-        data: issue,
-      });
-    } catch (error) {
-      if (error instanceof ApiError) return res.status(error.statusCode).json({ success: false, message: error.message });
-      res.status(500).json({ success: false, message: error.message });
-    }
-  }
-);
-
-router.post(
-  "/:issueId/assign",
-  issueIdValidator,
-  handleValidationErrors,
-  async (req, res) => {
-    try {
-      const { userIds } = req.body;
-      const currentUserId = req.user?.id;
-      const issue = await IssueService.assignUsers(req.params.issueId, userIds, currentUserId);
-      res.status(200).json({
-        success: true,
-        message: "Users assigned",
-        data: issue,
-      });
-    } catch (error) {
-      if (error instanceof ApiError) return res.status(error.statusCode).json({ success: false, message: error.message });
-      res.status(500).json({ success: false, message: error.message });
-    }
-  }
-);
-
-router.delete(
-  "/:issueId/assign/:userId",
-  handleValidationErrors,
-  async (req, res) => {
-    try {
-      const issue = await IssueService.removeAssignment(req.params.issueId, req.params.userId);
-      res.status(200).json({
-        success: true,
-        message: "Assignment removed",
-        data: issue,
-      });
-    } catch (error) {
-      if (error instanceof ApiError) return res.status(error.statusCode).json({ success: false, message: error.message });
-      res.status(500).json({ success: false, message: error.message });
-    }
-  }
-);
-
-router.post(
-  "/:issueId/watch",
-  issueIdValidator,
-  handleValidationErrors,
-  async (req, res) => {
-    try {
-      const userId = req.user?.id || req.body.userId;
-      const watcher = await IssueService.addWatcher(req.params.issueId, userId);
-      res.status(200).json({
-        success: true,
-        message: "Watcher added",
-        data: watcher,
-      });
-    } catch (error) {
-      if (error instanceof ApiError) return res.status(error.statusCode).json({ success: false, message: error.message });
-      res.status(500).json({ success: false, message: error.message });
-    }
-  }
-);
-
-router.delete(
-  "/:issueId/watch/:userId",
-  handleValidationErrors,
-  async (req, res) => {
-    try {
-      const result = await IssueService.removeWatcher(req.params.issueId, req.params.userId);
-      res.status(200).json({
-        success: true,
-        message: result.message,
-      });
-    } catch (error) {
-      if (error instanceof ApiError) return res.status(error.statusCode).json({ success: false, message: error.message });
-      res.status(500).json({ success: false, message: error.message });
-    }
-  }
-);
-
-// Map /taskId paths to issueId to support older clients perfectly without breaking them.
-router.param("taskId", (req, res, next, id) => {
-  req.params.issueId = id;
-  next();
-});
+// ── Legacy route aliases ──────────────────────────────────────────────────────
+// Support old /watch routes for backward compatibility
+router.post("/:issueId/watch",         issueIdValidator, validate, IssueController.addWatcher);
+router.delete("/:issueId/watch/:userId", issueIdValidator, validate, IssueController.removeWatcher);
 
 module.exports = router;

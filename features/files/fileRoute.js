@@ -1,7 +1,7 @@
 const express = require("express");
 const multer = require("multer");
 const FileController = require("./fileController");
-const { uploadFileValidator } = require("./fileValidator");
+const { uploadFileValidator, getFilesValidator } = require("./fileValidator");
 
 const router = express.Router();
 
@@ -12,6 +12,13 @@ const upload = multer({
     fileSize: 100 * 1024 * 1024, // 100MB limit for generic files
   },
 });
+
+// GET /api/v1/files
+router.get(
+  "/",
+  getFilesValidator,
+  FileController.getFiles
+);
 
 // POST /api/v1/files/upload
 router.post(

@@ -33,6 +33,7 @@ const ProjectSchema = new mongoose.Schema(
 
     // ── Info ───────────────────────────────────────────────────────────
     title:       { type: String, required: true, trim: true },
+    key:         { type: String, trim: true, default: null },
     description: { type: String, trim: true, default: "" },
 
     // ── Assets & Styling ───────────────────────────────────────────────

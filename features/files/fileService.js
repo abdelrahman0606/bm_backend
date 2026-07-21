@@ -3,6 +3,7 @@ const fs = require("fs");
 const path = require("path");
 const { FileModel, FileSourceType } = require("./fileModel");
 const ApiError = require("../../utils/apiError");
+const { buildFileScope } = require("./utils/fileScopeBuilder");
 
 class FileService {
   /**
@@ -11,11 +12,11 @@ class FileService {
    * @param {Object} file - The uploaded file object from multer
    * @param {String} id - The client-provided UUID
    * @param {Boolean} withDatabase - Whether to save to DB
-   * @param {String} [category] - Category of the file
+   * @param {String} [entityType] - Type of entity the file belongs to (company, project, issue, comment, etc.)
    * @param {String} [entityId] - Associated entity ID
    * @returns {Object} The file metadata object
    */
-  static async uploadFile(file, id, withDatabase, category, entityId) {
+  static async uploadFile(file, id, withDatabase, entityType, entityId) {
     try {
       if (!file) {
         throw new ApiError("No file provided", 400);
@@ -47,14 +48,17 @@ class FileService {
         lastVerified: new Date(),
       };
 
+      // Build hierarchical scope
+      const scope = await buildFileScope(entityType, entityId);
+
       // Construct metadata
       const fileData = {
         _id: id,
         sha256,
         fileName: file.originalname,
         mimeType: file.mimetype,
-        category: category || null,
-        entityId: entityId || null,
+        entityType: entityType || null,
+        scope,
         size: file.size,
         replicas: [replica],
         customMetadata: {},
@@ -73,14 +77,13 @@ class FileService {
         return fileDoc.toObject();
       }
       
-      // Return matching format if not saved to DB
       return {
         id: fileData._id,
         sha256: fileData.sha256,
         fileName: fileData.fileName,
         mimeType: fileData.mimeType,
-        category: fileData.category,
-        entityId: fileData.entityId,
+        entityType: fileData.entityType,
+        scope: fileData.scope,
         size: fileData.size,
         replicas: fileData.replicas,
         customMetadata: fileData.customMetadata,
@@ -99,7 +102,7 @@ class FileService {
     originalName,
     mimeType,
     id,
-    category,
+    entityType,
     entityId,
     telegramPath,
     telegramFileId,
@@ -125,13 +128,15 @@ class FileService {
       lastVerified: new Date(),
     };
 
+    const scope = await buildFileScope(entityType, entityId);
+
     const fileData = {
       _id: id,
       sha256,
       fileName: originalName || "telegram_upload",
       mimeType: mimeType || "application/octet-stream",
-      category: category || null,
-      entityId: entityId || null,
+      entityType: entityType || null,
+      scope,
       size: fileSize || buffer.length,
       replicas: [replica],
       customMetadata: customMetadata || {},
@@ -144,6 +149,40 @@ class FileService {
 
     const fileDoc = await FileModel.create(fileData);
     return fileDoc.toObject();
+  }
+
+  /**
+   * Fetch files by scope.
+   */
+  static async getFiles(filters) {
+    const query = {};
+    
+    // Convert direct query parameters into scope lookups
+    if (filters.companyId) query["scope.company"] = filters.companyId;
+    if (filters.projectId) query["scope.project"] = filters.projectId;
+    if (filters.issueId) query["scope.issue"] = filters.issueId;
+    if (filters.commentId) query["scope.comment"] = filters.commentId;
+    if (filters.sprintId) query["scope.sprint"] = filters.sprintId;
+    if (filters.milestoneId) query["scope.milestone"] = filters.milestoneId;
+    
+    // Exact entity match if provided explicitly via entityType/entityId parameters
+    if (filters.entityType && filters.entityId) {
+      query[`scope.${filters.entityType}`] = filters.entityId;
+    } else if (filters.entityType) {
+      query.entityType = filters.entityType;
+    }
+
+    const files = await FileModel.find(query).sort({ createdAt: -1 }).lean();
+    
+    // Map _id to id for lean output
+    return files.map(file => {
+      if (file._id) {
+        file.id = file._id;
+        delete file._id;
+      }
+      delete file.__v;
+      return file;
+    });
   }
 }
 

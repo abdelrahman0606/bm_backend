@@ -5,6 +5,8 @@ const ApiError = require("../../../utils/apiError");
 const { ProjectMemberRole } = require("./projectEnums");
 const StatusService = require("../statuses/statusService");
 const UserModel = require("../../users/userModel");
+const ActivityService = require("../activities/activityService");
+const { ActivityAction, ActivityEntityType } = require("../activities/activityEnums");
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -238,28 +240,227 @@ class ProjectService {
     }
   }
 
+  // ── Helper: Difference Detection ──────────────────────────────────────────
+
+  static _detectMemberDifferences(existingMembers, incomingMembers) {
+    const existingMap = new Map();
+    existingMembers.forEach(m => existingMap.set(String(m.userId), m));
+
+    const incomingMap = new Map();
+    incomingMembers.forEach(m => incomingMap.set(String(m.userId), m));
+
+    const added = [];
+    const removed = [];
+    const updated = [];
+
+    for (const m of incomingMembers) {
+      const uid = String(m.userId);
+      if (!existingMap.has(uid)) {
+        added.push(m);
+      } else {
+        const ext = existingMap.get(uid);
+        const roleChanged = ext.role !== m.role;
+        const oldPerms = JSON.stringify(ext.permissions || {});
+        const newPerms = JSON.stringify(m.permissions || {});
+        const permsChanged = oldPerms !== newPerms;
+
+        if (roleChanged || permsChanged || 
+            (m.isStarred !== undefined && m.isStarred !== ext.isStarred) || 
+            (m.isMuted !== undefined && m.isMuted !== ext.isMuted) ||
+            (m.lastSeenAt !== undefined && String(m.lastSeenAt) !== String(ext.lastSeenAt))) {
+          updated.push({
+            ...m,
+            _id: ext._id,
+            roleChanged,
+            permsChanged
+          });
+        }
+      }
+    }
+
+    for (const ext of existingMembers) {
+      if (!incomingMap.has(String(ext.userId))) {
+        removed.push(ext);
+      }
+    }
+
+    return { added, removed, updated };
+  }
+
+  // ── Helper: Log Activities ────────────────────────────────────────────────
+
+  static async _logMemberActivities(project, currentUserId, added, removed, updated) {
+    const actPromises = [];
+    const { _id: projectId, companyId } = project;
+
+    for (const r of removed) {
+      actPromises.push(ActivityService.createActivity({
+        companyId,
+        projectId,
+        userId: currentUserId || r.userId.toString(),
+        action: ActivityAction.REMOVE_MEMBER,
+        entityType: ActivityEntityType.MEMBER,
+        entityId: r.userId.toString(),
+        title: "Member removed",
+        description: "A member was removed from the project",
+        metadata: { removedUserId: r.userId.toString() }
+      }));
+    }
+
+    for (const a of added) {
+      actPromises.push(ActivityService.createActivity({
+        companyId,
+        projectId,
+        userId: currentUserId || a.userId.toString(),
+        action: ActivityAction.ADD_MEMBER,
+        entityType: ActivityEntityType.MEMBER,
+        entityId: a.userId.toString(),
+        title: "Member added",
+        description: `A new member was added to the project with role ${a.role}`,
+        metadata: { addedUserId: a.userId.toString(), role: a.role }
+      }));
+    }
+
+    for (const u of updated) {
+      if (u.roleChanged || u.permsChanged) {
+        let desc = "Member updated";
+        if (u.roleChanged && u.permsChanged) desc = `Member role changed to ${u.role} and permissions updated`;
+        else if (u.roleChanged) desc = `Member role changed to ${u.role}`;
+        else desc = "Member permissions updated";
+
+        actPromises.push(ActivityService.createActivity({
+          companyId,
+          projectId,
+          userId: currentUserId || u.userId.toString(),
+          action: ActivityAction.UPDATE,
+          entityType: ActivityEntityType.MEMBER,
+          entityId: u.userId.toString(),
+          title: "Member updated",
+          description: desc,
+          metadata: { 
+            updatedUserId: u.userId.toString(), 
+            roleChanged: u.roleChanged, 
+            permsChanged: u.permsChanged,
+            newRole: u.role 
+          }
+        }));
+      }
+    }
+
+    await Promise.allSettled(actPromises);
+  }
+
   // ── Update members (bulk) ─────────────────────────────────────────────────
 
-  static async updateProjectMembers(projectId, members) {
+  static async updateProjectMembers(projectId, members, currentUserId) {
     try {
-      const allowedFields = ["role", "permissions", "isStarred", "isMuted", "lastSeenAt"];
+      const project = await ProjectModel.findOne({ _id: projectId, isDeleted: false });
+      if (!project) throw new ApiError("Project not found", 404);
 
-      const ops = members.map((m) => {
-        const $set = {};
-        allowedFields.forEach((f) => {
-          if (m[f] !== undefined) $set[f] = m[f];
+      if (currentUserId) {
+        const currentUserMember = await ProjectMemberModel.findOne({ projectId, userId: currentUserId });
+        if (!currentUserMember || (currentUserMember.role !== ProjectMemberRole.OWNER && currentUserMember.role !== ProjectMemberRole.ADMIN)) {
+          throw new ApiError("You do not have permission to manage members", 403);
+        }
+      }
+
+      // Check for duplicates
+      if (!Array.isArray(members)) {
+        throw new ApiError("members array is required", 400);
+      }
+
+      const uniqueUserIds = new Set();
+      for (const m of members) {
+        if (!m.userId) throw new ApiError("userId is required for all members", 400);
+        if (uniqueUserIds.has(m.userId)) {
+          throw new ApiError(`Duplicate member found in the payload: ${m.userId}`, 400);
+        }
+        uniqueUserIds.add(m.userId);
+      }
+
+      const incomingUserIds = Array.from(uniqueUserIds);
+
+      // Validate users exist and belong to the same company
+      const existingUsers = await UserModel.find({ _id: { $in: incomingUserIds } }).lean();
+      if (existingUsers.length !== incomingUserIds.length) {
+        throw new ApiError("One or more users in the members list do not exist", 400);
+      }
+
+      const projectCompanyId = project.companyId ? project.companyId.toString() : null;
+      for (const user of existingUsers) {
+        if (user.companyId && projectCompanyId && user.companyId.toString() !== projectCompanyId) {
+          throw new ApiError(`User ${user.fullName || user._id} does not belong to the project's company`, 400);
+        }
+      }
+
+      // Owner rules
+      const incomingOwners = members.filter(m => m.role === ProjectMemberRole.OWNER);
+      if (incomingOwners.length === 0) {
+        throw new ApiError("The project must have at least one owner", 400);
+      }
+
+      // Self-protection
+      if (currentUserId) {
+        const existingSelf = await ProjectMemberModel.findOne({ projectId, userId: currentUserId });
+        if (existingSelf && existingSelf.role === ProjectMemberRole.OWNER) {
+          const incomingSelf = members.find(m => String(m.userId) === String(currentUserId));
+          if (!incomingSelf || incomingSelf.role !== ProjectMemberRole.OWNER) {
+            // Demoting or removing self
+            const otherOwners = incomingOwners.filter(m => String(m.userId) !== String(currentUserId));
+            if (otherOwners.length === 0) {
+              throw new ApiError("You cannot remove your owner role without assigning another owner first", 400);
+            }
+          }
+        }
+      }
+
+      // Difference Detection
+      const existingMembers = await ProjectMemberModel.find({ projectId });
+      const { added, removed, updated } = this._detectMemberDifferences(existingMembers, members);
+
+      // DB Operations
+      if (removed.length > 0) {
+        await ProjectMemberModel.deleteMany({
+          projectId,
+          userId: { $in: removed.map(r => r.userId) }
         });
-        return {
-          updateOne: {
-            filter: { projectId, userId: m.userId },
-            update: { $set },
-          },
-        };
-      });
+      }
 
-      await ProjectMemberModel.bulkWrite(ops);
+      if (added.length > 0) {
+        const toInsert = added.map(m => ({
+          projectId,
+          userId: m.userId,
+          role: m.role || ProjectMemberRole.MEMBER,
+          permissions: m.permissions || {},
+          isStarred: m.isStarred ?? false,
+          isMuted: m.isMuted ?? false,
+          joinedAt: m.joinedAt ? new Date(m.joinedAt) : new Date(),
+          lastSeenAt: m.lastSeenAt ? new Date(m.lastSeenAt) : null,
+        }));
+        await ProjectMemberModel.insertMany(toInsert);
+      }
 
-      // Return the fresh list for the project
+      if (updated.length > 0) {
+        const allowedFields = ["role", "permissions", "isStarred", "isMuted", "lastSeenAt"];
+        const bulkOps = updated.map(m => {
+          const $set = {};
+          allowedFields.forEach((f) => {
+            if (m[f] !== undefined) $set[f] = m[f];
+          });
+          return {
+            updateOne: {
+              filter: { _id: m._id },
+              update: { $set }
+            }
+          };
+        });
+        await ProjectMemberModel.bulkWrite(bulkOps);
+      }
+
+      // Activities
+      await this._logMemberActivities(project, currentUserId, added, removed, updated);
+
+      // Return the fresh list
       return ProjectService.getProjectMembers({ projectId });
     } catch (error) {
       if (error instanceof ApiError) throw error;

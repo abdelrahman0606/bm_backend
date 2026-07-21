@@ -1,4 +1,4 @@
-const { check } = require("express-validator");
+const { check, query } = require("express-validator");
 // We can use the existing validator middleware from the project
 const validatorMiddleware = require("../../middlewares/validatorMiddleware");
 
@@ -13,7 +13,7 @@ exports.uploadFileValidator = [
     .isBoolean()
     .withMessage("withDatabase must be a boolean (true or false)"),
 
-  check("category")
+  check("entityType")
     .optional()
     .isString(),
 
@@ -21,5 +21,17 @@ exports.uploadFileValidator = [
     .optional()
     .isString(),
     
+  validatorMiddleware,
+];
+
+exports.getFilesValidator = [
+  query("companyId").optional().isString(),
+  query("projectId").optional().isString(),
+  query("issueId").optional().isString(),
+  query("commentId").optional().isString(),
+  query("sprintId").optional().isString(),
+  query("milestoneId").optional().isString(),
+  query("entityType").optional().isString(),
+  query("entityId").optional().isString(),
   validatorMiddleware,
 ];

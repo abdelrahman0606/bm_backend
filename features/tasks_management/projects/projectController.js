@@ -63,11 +63,13 @@ class ProjectController {
       if (!Array.isArray(members) || members.length === 0) {
         return res.status(400).json({ success: false, message: "members array is required and must not be empty" });
       }
-      const result = await ProjectService.updateProjectMembers(projectId, members);
+      const currentUserId = req.user?.id;
+      const result = await ProjectService.updateProjectMembers(projectId, members, currentUserId);
       return res.status(200).json({
         success: true,
         message: "Members updated successfully",
-        data: result,
+        data: result.members,
+        pagination: result.pagination,
       });
     } catch (error) {
       return next(error);
