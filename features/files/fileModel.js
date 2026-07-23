@@ -52,10 +52,6 @@ const fileSchema = new mongoose.Schema(
       type: String,
       required: true,
     },
-    entityType: {
-      type: String,
-      default: null,
-    },
 
     size: {
       type: Number,
@@ -80,6 +76,7 @@ const fileSchema = new mongoose.Schema(
     timestamps: { createdAt: true, updatedAt: false }, // only createdAt is in the model
     toJSON: {
       virtuals: true,
+      flattenMaps: true,
       transform: (doc, ret) => {
         ret.id = ret._id;
         delete ret._id;
@@ -89,6 +86,7 @@ const fileSchema = new mongoose.Schema(
     },
     toObject: {
       virtuals: true,
+      flattenMaps: true,
       transform: (doc, ret) => {
         ret.id = ret._id;
         delete ret._id;

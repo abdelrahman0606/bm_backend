@@ -21,6 +21,8 @@ const filesTelegramRoute = require("./features/files/files_telegram/filesTelegra
 const filesRoute = require("./features/files/fileRoute");
 const canvasRoute = require("./features/canvas");
 const companyRoute = require("./features/companies/companyRoute");
+const notificationRoute = require("./features/notifications/notificationRoutes");
+const firebaseService = require("./features/notifications/firebaseService");
 
 const ApiError = require("./utils/apiError");
 const globalError = require("./middlewares/errorMiddleware");
@@ -29,6 +31,10 @@ const globalError = require("./middlewares/errorMiddleware");
 
 //connect to database
 dbConnection();
+
+// Initialize Firebase Admin SDK
+firebaseService.initializeFirebase();
+
 //express app initialization
 const app = express();
 // Middleware for logging in development mode
@@ -52,6 +58,7 @@ app.use("/api/v1/tasks-management", tasksManagementRoute);
 app.use("/api/v1/files-v2", filesTelegramRoute);
 app.use("/api/v1/files", filesRoute);
 app.use("/api/v1/canvas", canvasRoute);
+app.use("/api/v1/notifications", notificationRoute);
 
 app.use((req, res, next) =>
   next(new ApiError(`Can't find this route: ${req.originalUrl}`, 400)),

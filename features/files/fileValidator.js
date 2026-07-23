@@ -13,25 +13,43 @@ exports.uploadFileValidator = [
     .isBoolean()
     .withMessage("withDatabase must be a boolean (true or false)"),
 
-  check("entityType")
-    .optional()
-    .isString(),
+  check("scope")
+    .optional(),
 
-  check("entityId")
+  check("source")
     .optional()
-    .isString(),
+    .isString()
+    .isIn(["local", "telegram"])
+    .withMessage("source must be either local or telegram"),
+    
+  validatorMiddleware,
+];
+
+exports.uploadMultipleFilesValidator = [
+  check("ids")
+    .notEmpty()
+    .withMessage("ids is required (must be an array of UUIDs or a comma-separated string)"),
+  
+  check("withDatabase")
+    .optional()
+    .isBoolean()
+    .withMessage("withDatabase must be a boolean (true or false)"),
+
+  check("scope")
+    .optional(),
+
+  check("source")
+    .optional()
+    .isString()
+    .isIn(["local", "telegram"])
+    .withMessage("source must be either local or telegram"),
     
   validatorMiddleware,
 ];
 
 exports.getFilesValidator = [
-  query("companyId").optional().isString(),
-  query("projectId").optional().isString(),
-  query("issueId").optional().isString(),
-  query("commentId").optional().isString(),
-  query("sprintId").optional().isString(),
-  query("milestoneId").optional().isString(),
-  query("entityType").optional().isString(),
-  query("entityId").optional().isString(),
+  query("scope").optional().isObject(),
+  // We can validate that if scope is provided, its values are strings
+  query("scope.*").optional().isString(),
   validatorMiddleware,
 ];

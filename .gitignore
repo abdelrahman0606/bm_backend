@@ -1,2 +1,14 @@
 node_modules/
 config.env
+
+# Build artifacts — never commit
+dist/
+production/
+
+# Logs
+logs/
+*.log
+
+# OS
+.DS_Store
+Thumbs.db

@@ -190,6 +190,69 @@ async function uploadDocumentFromUrl(chatId, documentUrl, caption, parseMode) {
   return response;
 }
 
+// Upload file programmatically
+exports.uploadFileDirectly = async (file, id, withDatabase, scope = {}) => {
+  const fileData = file.buffer;
+  const fileName = file.originalname;
+  const extension = getFileExtension(fileName);
+  const useDocumentUpload = shouldSendAsDocument(extension) || !mimeMap[extension?.toLowerCase()];
+
+  let result;
+  if (useDocumentUpload) {
+    result = await uploadDocumentToTelegram(CHAT_ID, fileData, fileName, null, null);
+  } else {
+    result = await uploadPhotoToTelegram(CHAT_ID, fileData, fileName, null, null);
+  }
+
+  let telegramResponseData;
+
+  if (useDocumentUpload) {
+    const document = result.result.document;
+    const fileInfo = await getFileInfo(document.file_id);
+    const proxyUrl = buildProxyUrl(document.file_id, fileInfo.file_path, document.file_name);
+
+    telegramResponseData = {
+      size: document.file_size,
+      name: document.file_name,
+      url: proxyUrl,
+      path: fileInfo.file_path,
+      fileId: document.file_id,
+    };
+  } else {
+    const photos = result.result.photo;
+    const originalPhoto = photos[photos.length - 1];
+    const fileInfo = await getFileInfo(originalPhoto.file_id);
+    const proxyUrl = buildProxyUrl(originalPhoto.file_id, fileInfo.file_path);
+
+    telegramResponseData = {
+      size: originalPhoto.file_size,
+      width: originalPhoto.width,
+      height: originalPhoto.height,
+      url: proxyUrl,
+      path: fileInfo.file_path,
+      fileId: originalPhoto.file_id,
+    };
+  }
+
+  if (withDatabase) {
+    const finalFileName = telegramResponseData.name || fileName || "photo";
+    const dbFile = await FileService.saveTelegramFileToDatabase(
+      fileData,
+      finalFileName,
+      getMimeType(getFileExtension(finalFileName)),
+      id,
+      scope,
+      telegramResponseData.path || telegramResponseData.url,
+      telegramResponseData.fileId,
+      telegramResponseData.size,
+      { width: telegramResponseData.width, height: telegramResponseData.height }
+    );
+    return dbFile;
+  }
+
+  return telegramResponseData;
+};
+
 // Upload photo route handler
 exports.uploadPhoto = asyncHandler(async (req, res) => {
   const contentType = req.headers["content-type"] || "";

@@ -1,0 +1,164 @@
+{
+  "info": {
+    "_postman_id": "f51b9d14-3a7c-47b8-936a-2775f0a3e8cc",
+    "name": "Files Module",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Files",
+      "item": [
+        {
+          "name": "Get Files by Scope",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/files?scope[company]=&scope[project]=&scope[issue]=&scope[comment]=&scope[sprint]=",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "files"
+              ],
+              "query": [
+                {
+                  "key": "scope[company]",
+                  "value": "",
+                  "description": "Finds files recursively within this company scope",
+                  "disabled": true
+                },
+                {
+                  "key": "scope[project]",
+                  "value": "",
+                  "description": "Finds files recursively within this project scope",
+                  "disabled": true
+                },
+                {
+                  "key": "scope[issue]",
+                  "value": "",
+                  "description": "Finds files recursively within this issue scope",
+                  "disabled": true
+                },
+                {
+                  "key": "scope[comment]",
+                  "value": "",
+                  "description": "Finds files recursively within this comment scope",
+                  "disabled": true
+                },
+                {
+                  "key": "scope[sprint]",
+                  "value": "",
+                  "description": "Finds files recursively within this sprint scope",
+                  "disabled": true
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Upload File",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "file",
+                  "type": "file",
+                  "src": []
+                },
+                {
+                  "key": "id",
+                  "value": "{{$guid}}",
+                  "type": "text"
+                },
+                {
+                  "key": "withDatabase",
+                  "value": "true",
+                  "type": "text"
+                },
+                {
+                  "key": "scope",
+                  "value": "{\"issue\": \"{{issueId}}\"}",
+                  "type": "text",
+                  "description": "Provide a JSON string mapping the entity to its ID (e.g. {\"issue\": \"123\"}). The backend will recursively build the full hierarchical scope."
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/files/upload",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "files",
+                "upload"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Upload Multiple Files",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "files",
+                  "type": "file",
+                  "src": []
+                },
+                {
+                  "key": "files",
+                  "type": "file",
+                  "src": []
+                },
+                {
+                  "key": "ids",
+                  "value": "{{$guid}},{{$guid}}",
+                  "type": "text",
+                  "description": "Comma separated string of UUIDs for each file, or a JSON array string"
+                },
+                {
+                  "key": "withDatabase",
+                  "value": "true",
+                  "type": "text"
+                },
+                {
+                  "key": "scope",
+                  "value": "{\"issue\": \"{{issueId}}\"}",
+                  "type": "text",
+                  "description": "Provide a JSON string mapping the entity to its ID (e.g. {\"issue\": \"123\"}). The backend will recursively build the full hierarchical scope."
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/files/upload-multiple",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "files",
+                "upload-multiple"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:3000/api/v1",
+      "type": "string"
+    }
+  ]
+}

@@ -1,7 +1,7 @@
 const express = require("express");
 const multer = require("multer");
 const FileController = require("./fileController");
-const { uploadFileValidator, getFilesValidator } = require("./fileValidator");
+const { uploadFileValidator, uploadMultipleFilesValidator, getFilesValidator } = require("./fileValidator");
 
 const router = express.Router();
 
@@ -26,6 +26,14 @@ router.post(
   upload.single("file"),
   uploadFileValidator,
   FileController.uploadFile
+);
+
+// POST /api/v1/files/upload-multiple
+router.post(
+  "/upload-multiple",
+  upload.array("files", 20), // Support up to 20 files at once
+  uploadMultipleFilesValidator,
+  FileController.uploadMultipleFiles
 );
 
 module.exports = router;

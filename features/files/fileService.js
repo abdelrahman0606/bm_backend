@@ -3,7 +3,6 @@ const fs = require("fs");
 const path = require("path");
 const { FileModel, FileSourceType } = require("./fileModel");
 const ApiError = require("../../utils/apiError");
-const { buildFileScope } = require("./utils/fileScopeBuilder");
 
 class FileService {
   /**
@@ -12,11 +11,10 @@ class FileService {
    * @param {Object} file - The uploaded file object from multer
    * @param {String} id - The client-provided UUID
    * @param {Boolean} withDatabase - Whether to save to DB
-   * @param {String} [entityType] - Type of entity the file belongs to (company, project, issue, comment, etc.)
-   * @param {String} [entityId] - Associated entity ID
+   * @param {Object} [scope] - Scope object for the file
    * @returns {Object} The file metadata object
    */
-  static async uploadFile(file, id, withDatabase, entityType, entityId) {
+  static async uploadFile(file, id, withDatabase = false, scope = {}) {
     try {
       if (!file) {
         throw new ApiError("No file provided", 400);
@@ -48,16 +46,12 @@ class FileService {
         lastVerified: new Date(),
       };
 
-      // Build hierarchical scope
-      const scope = await buildFileScope(entityType, entityId);
-
       // Construct metadata
       const fileData = {
         _id: id,
         sha256,
         fileName: file.originalname,
         mimeType: file.mimetype,
-        entityType: entityType || null,
         scope,
         size: file.size,
         replicas: [replica],
@@ -82,7 +76,6 @@ class FileService {
         sha256: fileData.sha256,
         fileName: fileData.fileName,
         mimeType: fileData.mimeType,
-        entityType: fileData.entityType,
         scope: fileData.scope,
         size: fileData.size,
         replicas: fileData.replicas,
@@ -102,8 +95,7 @@ class FileService {
     originalName,
     mimeType,
     id,
-    entityType,
-    entityId,
+    scope = {},
     telegramPath,
     telegramFileId,
     fileSize,
@@ -128,14 +120,11 @@ class FileService {
       lastVerified: new Date(),
     };
 
-    const scope = await buildFileScope(entityType, entityId);
-
     const fileData = {
       _id: id,
       sha256,
       fileName: originalName || "telegram_upload",
       mimeType: mimeType || "application/octet-stream",
-      entityType: entityType || null,
       scope,
       size: fileSize || buffer.length,
       replicas: [replica],
@@ -157,19 +146,11 @@ class FileService {
   static async getFiles(filters) {
     const query = {};
     
-    // Convert direct query parameters into scope lookups
-    if (filters.companyId) query["scope.company"] = filters.companyId;
-    if (filters.projectId) query["scope.project"] = filters.projectId;
-    if (filters.issueId) query["scope.issue"] = filters.issueId;
-    if (filters.commentId) query["scope.comment"] = filters.commentId;
-    if (filters.sprintId) query["scope.sprint"] = filters.sprintId;
-    if (filters.milestoneId) query["scope.milestone"] = filters.milestoneId;
-    
-    // Exact entity match if provided explicitly via entityType/entityId parameters
-    if (filters.entityType && filters.entityId) {
-      query[`scope.${filters.entityType}`] = filters.entityId;
-    } else if (filters.entityType) {
-      query.entityType = filters.entityType;
+    // Dynamic scope processing (e.g. ?scope[company]=123 -> scope.company: "123")
+    if (filters.scope && typeof filters.scope === "object") {
+      for (const [key, value] of Object.entries(filters.scope)) {
+        query[`scope.${key}`] = value;
+      }
     }
 
     const files = await FileModel.find(query).sort({ createdAt: -1 }).lean();
