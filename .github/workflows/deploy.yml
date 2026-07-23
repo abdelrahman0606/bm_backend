@@ -7,9 +7,10 @@ on:
   workflow_dispatch:
 
 jobs:
-  build:
-    name: Build Production Binary
+  build-and-deploy:
+    name: Build & Deploy
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
@@ -23,75 +24,92 @@ jobs:
       - name: Install Dependencies
         run: npm ci
 
-      - name: Build Linux Executable
-        run: npm run build:linux
-        
-      - name: Prepare Deployment Package
+      - name: Build Production Binary
+        run: npm run build
+
+      - name: Verify Build Output
         run: |
-          cd production
-          # Rename the executable so it doesn't cause a "Text file busy" error during SCP
-          mv server server.new
-          # Zip the necessary files for fast transfer
-          zip -r ../deploy-package.zip server.new node_modules
-          cd ..
+          test -f production/server || { echo "❌ Build failed: production/server not found"; exit 1; }
+          echo "✅ Binary size: $(du -h production/server | cut -f1)"
 
-      - name: Upload Deployment Artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: deploy-package
-          path: deploy-package.zip
-          retention-days: 1
-
-  deploy:
-    name: Deploy to Server
-    needs: build
-    runs-on: ubuntu-latest
-    steps:
-      - name: Download Deployment Package
-        uses: actions/download-artifact@v4
-        with:
-          name: deploy-package
-          path: .
-
-      - name: Copy files via SSH
+      - name: Deploy to Server
         uses: appleboy/scp-action@v0.1.7
         with:
           host: ${{ secrets.SERVER_HOST }}
-          username: root
+          username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.SERVER_SSH_KEY }}
-          port: 22
-          source: "deploy-package.zip"
-          target: "/home/nodes/bm_backend_server"
+          port: ${{ secrets.SERVER_PORT }}
+          source: "production/server,production/node_modules"
+          target: "/tmp/bm_deploy"
           overwrite: true
+          strip_components: 1
 
-      - name: Extract, Replace, and Restart
+      - name: Replace, Restart & Verify
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.SERVER_HOST }}
-          username: root
+          username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.SERVER_SSH_KEY }}
-          port: 22
+          port: ${{ secrets.SERVER_PORT }}
           script: |
-            cd /home/nodes/bm_backend_server
-            
-            # Ensure unzip is installed (in case it isn't)
-            apt-get update && apt-get install -y unzip || true
-            
-            # Unzip the new files (overwriting node_modules)
-            unzip -o deploy-package.zip
-            
-            # Safely replace the running executable
-            mv server.new server
+            set -e
+            DEPLOY_DIR="${{ secrets.DEPLOY_DIR }}"
+            PM2_NAME="bm_backend"
+            STAGING="/tmp/bm_deploy"
+
+            cd "$DEPLOY_DIR"
+
+            # ── Backup current binary ──
+            if [ -f server ]; then
+              cp server server.bak
+              echo "✅ Backed up server → server.bak"
+            fi
+
+            # ── Atomic replacement ──
+            mv "$STAGING/server" server
             chmod +x server
-            
-            # Clean up the zip file
-            rm deploy-package.zip
-            
-            # Ensure PM2 is installed
-            npm install -g pm2
-            
-            # Restart the PM2 process (or start it if it doesn't exist)
-            pm2 restart bm_backend || pm2 start ./server --name bm_backend
-            
-            # Save the PM2 process list so it starts on server reboot
+
+            # ── Update node_modules only if they were uploaded ──
+            if [ -d "$STAGING/node_modules" ]; then
+              rm -rf node_modules
+              mv "$STAGING/node_modules" node_modules
+              echo "✅ Updated node_modules"
+            fi
+
+            # ── Clean staging ──
+            rm -rf "$STAGING"
+
+            # ── Restart PM2 ──
+            pm2 restart "$PM2_NAME" || pm2 start ./server --name "$PM2_NAME"
             pm2 save
+
+            # ── Health check (wait 5s, then verify process is online) ──
+            sleep 5
+            STATUS=$(pm2 jlist | python3 -c "
+            import sys, json
+            procs = json.load(sys.stdin)
+            for p in procs:
+              if p['name'] == '$PM2_NAME':
+                print(p['pm2_env']['status'])
+                sys.exit(0)
+            print('not_found')
+            ")
+
+            if [ "$STATUS" = "online" ]; then
+              echo "✅ Health check passed — $PM2_NAME is online"
+            else
+              echo "❌ Health check FAILED — status: $STATUS"
+              echo "🔄 Rolling back to server.bak..."
+              if [ -f server.bak ]; then
+                mv server.bak server
+                chmod +x server
+                pm2 restart "$PM2_NAME"
+                sleep 3
+                echo "⚠️  Rolled back to previous version"
+              fi
+              exit 1
+            fi
+
+            # ── Clean up backup on success ──
+            rm -f server.bak
+            echo "🚀 Deployment complete"

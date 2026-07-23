@@ -4,6 +4,7 @@ config.env
 # Build artifacts — never commit
 dist/
 production/
+scratch/
 
 # Logs
 logs/
