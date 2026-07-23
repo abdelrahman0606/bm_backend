@@ -2,21 +2,27 @@
  * build/build.js — Main orchestration script for the production build using Node.js SEA.
  *
  * Steps:
- *  1. Clean dist/
+ *  1. Clean dist/ & old executables
  *  2. Run esbuild       → dist/bundle.js
  *  3. Run obfuscator    → dist/bundle.obf.js
- *  4. Node SEA          → Generate blob and inject into node executable
+ *  4. Node SEA          → Generate blob and inject into node executable (with cross-compilation support)
  *  5. Copy native node_modules (firebase-admin, grpc) → production/node_modules
  *  6. Scaffold production directory layout
  *
  * Usage:
  *   node build/build.js
+ *   node build/build.js --target=linux
  */
 
 const { execSync } = require("child_process");
 const path = require("path");
 const fs = require("fs");
 const os = require("os");
+
+// Parse CLI target
+const args = process.argv.slice(2);
+const targetArg = args.find((a) => a.startsWith("--target="));
+const targetLinux = targetArg ? targetArg.split("=")[1].toLowerCase() === "linux" : false;
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 
@@ -59,14 +65,23 @@ function copyDir(src, dest) {
   }
 }
 
-// ── Step 1: Clean dist/ ─────────────────────────────────────────────────────
+// ── Step 1: Clean dist/ & old executables ───────────────────────────────────
 
-log("Step 1 — Clean previous dist/");
+log("Step 1 — Clean previous dist/ and old executables");
 if (fs.existsSync(DIST)) {
   fs.rmSync(DIST, { recursive: true, force: true });
   console.log("   Removed dist/");
 }
 ensureDir(DIST);
+
+// Remove old executables in production/ so we don't accidentally deploy them
+if (fs.existsSync(PRODUCTION)) {
+  const oldExe = path.join(PRODUCTION, "server.exe");
+  const oldLinux = path.join(PRODUCTION, "server");
+  if (fs.existsSync(oldExe)) fs.unlinkSync(oldExe);
+  if (fs.existsSync(oldLinux)) fs.unlinkSync(oldLinux);
+  console.log("   Removed old executables from production/");
+}
 
 // ── Step 2: esbuild ─────────────────────────────────────────────────────────
 
@@ -96,15 +111,38 @@ fs.writeFileSync(seaConfigPath, JSON.stringify(seaConfig, null, 2));
 // 2. Generate the blob
 run("Generate SEA Blob", `node --experimental-sea-config ${path.join("dist", "sea-config.json")}`);
 
-// 3. Copy the current Node binary
-const isWindows = os.platform() === "win32";
-const exeName = isWindows ? "server.exe" : "server";
+// 3. Prepare the Node binary
+const isWindowsHost = os.platform() === "win32";
+let nodeBinaryPath = process.execPath;
+let exeName = isWindowsHost ? "server.exe" : "server";
+
+if (targetLinux && isWindowsHost) {
+  exeName = "server";
+  console.log(`   --target=linux specified on Windows. Fetching Linux node binary...`);
+  const version = process.version;
+  const dlUrl = `https://nodejs.org/dist/${version}/node-${version}-linux-x64.tar.gz`;
+  const tarPath = path.join(DIST, "node-linux.tar.gz");
+  const extractedNodePath = path.join(DIST, `node-${version}-linux-x64`, "bin", "node");
+  
+  if (!fs.existsSync(extractedNodePath)) {
+    console.log(`   Downloading ${dlUrl} ...`);
+    const fetchScript = `fetch('${dlUrl}').then(r => r.arrayBuffer()).then(b => { require('fs').writeFileSync('${tarPath.replace(/\\/g, "/")}', Buffer.from(b)); })`;
+    run("Download Node Linux Binary", `node -e "${fetchScript}"`);
+    run("Extract Tarball", `tar -xzf ${tarPath} -C dist`);
+  } else {
+    console.log(`   Using cached Linux node binary at ${extractedNodePath}`);
+  }
+  nodeBinaryPath = extractedNodePath;
+} else if (targetLinux && !isWindowsHost) {
+  exeName = "server";
+}
+
 const outPath = path.join(PRODUCTION, exeName);
 console.log(`   Copying Node executable to ${outPath}`);
-fs.copyFileSync(process.execPath, outPath);
+fs.copyFileSync(nodeBinaryPath, outPath);
 
 // 4. Inject the blob using postject
-const machoFlag = os.platform() === 'darwin' ? '--macho-segment-name NODE_SEA' : '';
+const machoFlag = (!targetLinux && os.platform() === 'darwin') ? '--macho-segment-name NODE_SEA' : '';
 run(
   "Inject SEA Blob",
   `npx postject "${outPath}" NODE_SEA_BLOB "${seaBlobPath}" --sentinel-fuse NODE_SEA_FUSE_fce680ab2cc467b6e072b8b5df1996b2 ${machoFlag} --overwrite`

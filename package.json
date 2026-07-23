@@ -9,7 +9,8 @@
     "start": "node server.js",
     "build:bundle": "node build/esbuild.config.js",
     "build:obfuscate": "node build/obfuscate.js",
-    "build": "node build/build.js"
+    "build": "node build/build.js",
+    "build:linux": "node build/build.js --target=linux"
   },
 
   "keywords": [],

@@ -1,0 +1,97 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build Production Binary
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Install Dependencies
+        run: npm ci
+
+      - name: Build Linux Executable
+        run: npm run build:linux
+        
+      - name: Prepare Deployment Package
+        run: |
+          cd production
+          # Rename the executable so it doesn't cause a "Text file busy" error during SCP
+          mv server server.new
+          # Zip the necessary files for fast transfer
+          zip -r ../deploy-package.zip server.new node_modules
+          cd ..
+
+      - name: Upload Deployment Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: deploy-package
+          path: deploy-package.zip
+          retention-days: 1
+
+  deploy:
+    name: Deploy to Server
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download Deployment Package
+        uses: actions/download-artifact@v4
+        with:
+          name: deploy-package
+          path: .
+
+      - name: Copy files via SSH
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: root
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          port: 22
+          source: "deploy-package.zip"
+          target: "/home/nodes/bm_backend_server"
+          overwrite: true
+
+      - name: Extract, Replace, and Restart
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: root
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          port: 22
+          script: |
+            cd /home/nodes/bm_backend_server
+            
+            # Ensure unzip is installed (in case it isn't)
+            apt-get update && apt-get install -y unzip || true
+            
+            # Unzip the new files (overwriting node_modules)
+            unzip -o deploy-package.zip
+            
+            # Safely replace the running executable
+            mv server.new server
+            chmod +x server
+            
+            # Clean up the zip file
+            rm deploy-package.zip
+            
+            # Ensure PM2 is installed
+            npm install -g pm2
+            
+            # Restart the PM2 process (or start it if it doesn't exist)
+            pm2 restart bm_backend || pm2 start ./server --name bm_backend
+            
+            # Save the PM2 process list so it starts on server reboot
+            pm2 save
