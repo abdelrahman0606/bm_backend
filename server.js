@@ -69,7 +69,8 @@ app.use(globalError);
 
 const PORT = process.env.PORT || 8000;
 const server = app.listen(PORT, () => {
-  console.log(`Server is running on http://localhost:${PORT}`);
+  console.log(`Server is running on
+     http://localhost:${PORT}`);
 });
 // Handle unhandled promise rejections outside of express routes
 process.on("un", (err) => {
