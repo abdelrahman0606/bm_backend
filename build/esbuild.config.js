@@ -40,6 +40,48 @@ const EXTERNALS = [
   // esbuild handles these automatically for platform:node, listed for clarity
 ];
 
+// ── SEA-compatible external-require plugin ────────────────────────────────────
+//
+// Problem: Inside a Node.js SEA binary the embedded script's `require` is
+// `embedderRequire`, which ONLY resolves Node core built-ins (fs, path …).
+// Calling require("firebase-admin") throws ERR_UNKNOWN_BUILTIN_MODULE.
+//
+// Solution: For every external npm package this plugin generates a tiny virtual
+// module instead of letting esbuild mark it as `external`.  That virtual module
+// calls `require("module")` (a core built-in → works in SEA) to obtain
+// `createRequire`, then uses `createRequire(process.execPath)` to build a
+// real filesystem resolver pointing at <binary-dir>/node_modules/.
+//
+// NOTE: we cannot use a `banner` to shadow `require` because inside the CJS
+// module wrapper `require` is already a function parameter — redeclaring it
+// with `const` is a SyntaxError.
+// ─────────────────────────────────────────────────────────────────────────────
+const externalFilter = new RegExp(
+  `^(${EXTERNALS.map((e) =>
+    e.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
+  ).join("|")})(\/|$)`
+);
+
+const seaExternalPlugin = {
+  name: "sea-external",
+  setup(build) {
+    // Intercept resolution of every external package
+    build.onResolve({ filter: externalFilter }, (args) => ({
+      path: args.path,
+      namespace: "sea-external",
+    }));
+
+    // Return a virtual CJS module that loads the package via createRequire
+    build.onLoad({ filter: /.*/, namespace: "sea-external" }, (args) => ({
+      contents: [
+        `const{createRequire:_cr}=require("module");`,
+        `module.exports=_cr(process.execPath)(${JSON.stringify(args.path)});`,
+      ].join(""),
+      loader: "js",
+    }));
+  },
+};
+
 (async () => {
   console.log("⚙️  esbuild: bundling server.js → dist/bundle.js …");
 
@@ -68,23 +110,8 @@ const EXTERNALS = [
       "process.env.NODE_ENV": JSON.stringify("production"),
     },
 
-    external: EXTERNALS,
-
-    // ── SEA-compatible require override ─────────────────────────────────
-    // Inside a Node.js SEA binary, the built-in `require` is `embedderRequire`
-    // which can ONLY load Node core built-ins (fs, path, etc.).  It throws
-    // ERR_UNKNOWN_BUILTIN_MODULE for any npm package (firebase-admin, @grpc…).
-    //
-    // Fix: shadow `require` at the very top of the bundle with one created by
-    // `module.createRequire(process.execPath)`.  This resolver looks for
-    // node_modules/ relative to the SEA binary, which is exactly what we ship
-    // in production/node_modules/.
-    banner: {
-      js: [
-        `const{createRequire:__cr}=require("module");`,
-        `const require=__cr(process.execPath);`,
-      ].join(""),
-    },
+    // The plugin handles all EXTERNALS — no separate `external` array needed
+    plugins: [seaExternalPlugin],
 
     logLevel: "info",
     metafile: true,
