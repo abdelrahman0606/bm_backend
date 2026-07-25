@@ -70,7 +70,22 @@ const EXTERNALS = [
 
     external: EXTERNALS,
 
-    // Suppress banner/footer to keep the file clean
+    // ── SEA-compatible require override ─────────────────────────────────
+    // Inside a Node.js SEA binary, the built-in `require` is `embedderRequire`
+    // which can ONLY load Node core built-ins (fs, path, etc.).  It throws
+    // ERR_UNKNOWN_BUILTIN_MODULE for any npm package (firebase-admin, @grpc…).
+    //
+    // Fix: shadow `require` at the very top of the bundle with one created by
+    // `module.createRequire(process.execPath)`.  This resolver looks for
+    // node_modules/ relative to the SEA binary, which is exactly what we ship
+    // in production/node_modules/.
+    banner: {
+      js: [
+        `const{createRequire:__cr}=require("module");`,
+        `const require=__cr(process.execPath);`,
+      ].join(""),
+    },
+
     logLevel: "info",
     metafile: true,
   });
