@@ -150,44 +150,81 @@ run(
 
 // ── Step 5: Copy native node_modules ────────────────────────────────────────
 
-log("Step 5 — Copy native node_modules (firebase-admin + gRPC)");
+log("Step 5 — Copy native node_modules (firebase-admin + gRPC + all transitive deps)");
 
-const NATIVE_PACKAGES = [
+// Root packages that are externalised from the SEA bundle.
+// Their full transitive dependency closure will be resolved and copied automatically.
+const NATIVE_ROOTS = [
   "firebase-admin",
-  "@firebase",
-  "@google-cloud",
-  "@grpc",
-  "grpc",
+  "@grpc/grpc-js",
+  "@grpc/proto-loader",
+  "google-auth-library",
   "google-gax",
   "protobufjs",
-  "proto3-json-serializer",
-  "long",
-  "node-pre-gyp",
-  "node-fetch",
-  "abort-controller",
-  "event-target-shim",
-  "whatwg-url",
-  "tr46",
-  "webidl-conversions",
 ];
 
 const srcNodeModules  = path.join(ROOT, "node_modules");
 const destNodeModules = path.join(PRODUCTION, "node_modules");
 ensureDir(destNodeModules);
 
+/**
+ * Recursively collect all packages that `pkgName` depends on.
+ * Reads each package's package.json and walks dependencies/peerDependencies.
+ * Returns a Set of package names (scoped or plain).
+ */
+function collectDeps(pkgName, visited = new Set()) {
+  if (visited.has(pkgName)) return visited;
+  visited.add(pkgName);
+
+  const pkgJsonPath = path.join(srcNodeModules, pkgName, "package.json");
+  if (!fs.existsSync(pkgJsonPath)) return visited;
+
+  let pkgJson;
+  try {
+    pkgJson = JSON.parse(fs.readFileSync(pkgJsonPath, "utf8"));
+  } catch {
+    return visited;
+  }
+
+  const deps = {
+    ...pkgJson.dependencies,
+    // include peerDependencies that are actually installed
+    ...(pkgJson.peerDependencies || {}),
+  };
+
+  for (const dep of Object.keys(deps)) {
+    // Skip Node built-ins (they won't be in node_modules)
+    if (!fs.existsSync(path.join(srcNodeModules, dep))) continue;
+    collectDeps(dep, visited);
+  }
+
+  return visited;
+}
+
+// Build the full package set: roots + all transitive dependencies
+const allPackages = new Set();
+for (const root of NATIVE_ROOTS) {
+  collectDeps(root, allPackages);
+}
+
+console.log(`   Resolved ${allPackages.size} packages (roots + transitive deps)`);
+
 let copied = 0;
-for (const pkg of NATIVE_PACKAGES) {
+for (const pkg of [...allPackages].sort()) {
   const srcPkg = path.join(srcNodeModules, pkg);
   if (fs.existsSync(srcPkg)) {
     const destPkg = path.join(destNodeModules, pkg);
-    console.log(`   Copying: node_modules/${pkg}`);
-    copyDir(srcPkg, destPkg);
-    copied++;
+    if (!fs.existsSync(destPkg)) {           // skip if already copied (e.g. shared dep)
+      copyDir(srcPkg, destPkg);
+      copied++;
+    }
+    process.stdout.write(`   ✓ ${pkg}\n`);
   } else {
-    console.log(`   Skipped (not found): node_modules/${pkg}`);
+    console.log(`   Skipped (not installed): ${pkg}`);
   }
 }
-console.log(`\n   ✅  Copied ${copied} native package(s) to production/node_modules`);
+console.log(`\n   ✅  Copied ${copied} package(s) to production/node_modules`);
+
 
 // ── Step 6: Scaffold production directory ───────────────────────────────────
 
