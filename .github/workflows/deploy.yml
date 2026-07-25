@@ -31,6 +31,13 @@ jobs:
         run: |
           test -f production/server || { echo "❌ Build failed: production/server not found"; exit 1; }
           echo "✅ Binary size: $(du -h production/server | cut -f1)"
+     
+      - name: Verify Secrets
+        run: |
+          echo "HOST=${{ secrets.SERVER_HOST }}"
+          echo "USER=${{ secrets.SERVER_USER }}"
+          echo "PORT=${{ secrets.SERVER_PORT }}"
+          echo "KEY LENGTH=$(echo '${{ secrets.SERVER_SSH_KEY }}' | wc -c)"
 
       - name: Deploy to Server
         uses: appleboy/scp-action@v0.1.7
