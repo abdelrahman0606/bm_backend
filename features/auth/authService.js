@@ -4,6 +4,7 @@ const crypto = require("crypto");
 const { OAuth2Client } = require("google-auth-library");
 const User = require("../users/userModel");
 const ApiError = require("../../utils/apiError");
+const invitationService = require("../invitations/invitationService");
 
 const JWT_SECRET =
   process.env.JWT_SECRET || "your-secret-key-change-in-production";
@@ -62,7 +63,10 @@ const buildUserResponse = async (user) => {
 };
 
 exports.register = async (userData) => {
-  const { email, password, full_name: fullName, phone } = userData;
+  const { email, password, fullName, phone, invitationCode } = userData;
+
+  // Validate invitation
+  const invitation = await invitationService.validateRegiCode(invitationCode);
 
   // Check if user already exists
   const existingUser = await User.findOne({ email: email.toLowerCase() });
@@ -81,12 +85,17 @@ exports.register = async (userData) => {
     phone: phone || "0000000000",
     password: hashedPassword,
     type: "guest",
-    role: "junior",
+    role: invitation.role,
+    employeeType: invitation.employeeType,
+    jobs: invitation.jobs,
     status: "active",
     isEmailVerified: false,
     relation: "self",
     birthday: new Date(),
   });
+
+  // Delete the invitation once it has been consumed successfully
+  await invitationService.deleteInvitation(invitation.id);
 
   // Generate tokens
   const token = generateToken(user._id);
@@ -132,7 +141,7 @@ exports.login = async (email, password) => {
   };
 };
 
-exports.googleAuth = async (idToken) => {
+exports.googleAuth = async (idToken, authType, invitationCode) => {
   let payload;
   try {
     const ticket = await googleClient.verifyIdToken({
@@ -152,6 +161,16 @@ exports.googleAuth = async (idToken) => {
   let user = await User.findOne({ email });
 
   if (!user) {
+    let invitation;
+    if (authType === "register") {
+      if (!invitationCode) {
+        throw new ApiError("Invitation code is required for registration", 400);
+      }
+      invitation = await invitationService.validateRegiCode(invitationCode);
+    } else {
+      throw new ApiError("User does not exist, please register first", 404);
+    }
+
     const randomPassword = generateStrongRandomPassword();
     const hashedPassword = await hashPassword(randomPassword);
     const timestamp = Date.now();
@@ -164,14 +183,24 @@ exports.googleAuth = async (idToken) => {
       photo: payload.picture || null,
       password: hashedPassword,
       type: "guest",
-      role: "junior",
+      role: invitation.role,
+      employeeType: invitation.employeeType,
+      jobs: invitation.jobs,
       status: "active",
       isEmailVerified: Boolean(payload.email_verified),
       phone: "0000000000",
       relation: "self",
       birthday: new Date(),
     });
+
+    if (invitation) {
+      await invitationService.deleteInvitation(invitation.id);
+    }
   } else {
+    if (authType === "register") {
+      throw new ApiError("Email already registered", 409);
+    }
+
     if (user.status === "suspended") {
       throw new ApiError("User account is suspended", 403);
     }

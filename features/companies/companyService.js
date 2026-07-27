@@ -26,7 +26,7 @@ exports.createCompany = async (companyData, userId) => {
 
 exports.getCompanies = async (query = {}, userId) => {
   const { page = 0, limit = 10, search } = query;
-  const filter = { createdBy: userId };
+  const filter = {};
 
   if (search) {
     filter.title = { $regex: search, $options: "i" };

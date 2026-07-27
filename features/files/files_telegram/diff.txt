@@ -1,0 +1,434 @@
+﻿diff --git "a/d:\\nodejs_projects\\bm_backend\\features\\files\\files_telegram/diff.txt" "b/d:\\nodejs_projects\\bm_backend\\features\\files\\files_telegram/diff.txt"
+new file mode 100644
+index 0000000..e69de29
+diff --git "a/D:\\nodejs_projects\\reline_code_backend\\features\\files_telegram/filesTelegramService.js" "b/d:\\nodejs_projects\\bm_backend\\features\\files\\files_telegram/filesTelegramService.js"
+index 4d925e8..0b844cf 100644
+--- "a/D:\\nodejs_projects\\reline_code_backend\\features\\files_telegram/filesTelegramService.js"
++++ "b/d:\\nodejs_projects\\bm_backend\\features\\files\\files_telegram/filesTelegramService.js"
+@@ -1,7 +1,7 @@
+ const asyncHandler = require("express-async-handler");
+ const axios = require("axios");
+ const FormData = require("form-data");
+-const { BOT_TOKEN, CHAT_ID,  } = require("./telegramConfig");
++const { BOT_TOKEN, CHAT_ID, } = require("./telegramConfig");
+ const {
+   getFileInfo,
+   makeApiRequest,
+@@ -10,6 +10,7 @@ const {
+   getUpdates,
+   sendMessage,
+ } = require("./telegramApi");
++const FileService = require("../fileService");
+ 
+ // MIME type mapping
+ const mimeMap = {
+@@ -189,6 +190,69 @@ async function uploadDocumentFromUrl(chatId, documentUrl, caption, parseMode) {
+   return response;
+ }
+ 
++// Upload file programmatically
++exports.uploadFileDirectly = async (file, id, withDatabase, scope = {}) => {
++  const fileData = file.buffer;
++  const fileName = file.originalname;
++  const extension = getFileExtension(fileName);
++  const useDocumentUpload = shouldSendAsDocument(extension) || !mimeMap[extension?.toLowerCase()];
++
++  let result;
++  if (useDocumentUpload) {
++    result = await uploadDocumentToTelegram(CHAT_ID, fileData, fileName, null, null);
++  } else {
++    result = await uploadPhotoToTelegram(CHAT_ID, fileData, fileName, null, null);
++  }
++
++  let telegramResponseData;
++
++  if (useDocumentUpload) {
++    const document = result.result.document;
++    const fileInfo = await getFileInfo(document.file_id);
++    const proxyUrl = buildProxyUrl(document.file_id, fileInfo.file_path, document.file_name);
++
++    telegramResponseData = {
++      size: document.file_size,
++      name: document.file_name,
++      url: proxyUrl,
++      path: fileInfo.file_path,
++      fileId: document.file_id,
++    };
++  } else {
++    const photos = result.result.photo;
++    const originalPhoto = photos[photos.length - 1];
++    const fileInfo = await getFileInfo(originalPhoto.file_id);
++    const proxyUrl = buildProxyUrl(originalPhoto.file_id, fileInfo.file_path);
++
++    telegramResponseData = {
++      size: originalPhoto.file_size,
++      width: originalPhoto.width,
++      height: originalPhoto.height,
++      url: proxyUrl,
++      path: fileInfo.file_path,
++      fileId: originalPhoto.file_id,
++    };
++  }
++
++  if (withDatabase) {
++    const finalFileName = telegramResponseData.name || fileName || "photo";
++    const dbFile = await FileService.saveTelegramFileToDatabase(
++      fileData,
++      finalFileName,
++      getMimeType(getFileExtension(finalFileName)),
++      id,
++      scope,
++      telegramResponseData.path || telegramResponseData.url,
++      telegramResponseData.fileId,
++      telegramResponseData.size,
++      { width: telegramResponseData.width, height: telegramResponseData.height }
++    );
++    return dbFile;
++  }
++
++  return telegramResponseData;
++};
++
+ // Upload photo route handler
+ exports.uploadPhoto = asyncHandler(async (req, res) => {
+   const contentType = req.headers["content-type"] || "";
+@@ -200,12 +264,21 @@ exports.uploadPhoto = asyncHandler(async (req, res) => {
+   let fileData = null;
+   let fileName = null;
+ 
++  let id = null;
++  let category = null;
++  let entityId = null;
++  let withDatabase = false;
++
+   // Parse request based on content type
+   if (contentType.includes("multipart/form-data")) {
+     const formData = req.body; // multer would have parsed this
+     chatId = formData.chat_id || CHAT_ID;
+     caption = formData.caption;
+     parseMode = formData.parse_mode;
++    id = formData.id;
++    category = formData.category;
++    entityId = formData.entityId;
++    withDatabase = String(formData.withDatabase).toLowerCase() === "true";
+     const requestedFileName =
+       formData.file_name || formData.fileName || formData.name;
+ 
+@@ -222,6 +295,10 @@ exports.uploadPhoto = asyncHandler(async (req, res) => {
+     photoNetworkUrl = body.photoNetworkUrl || body.photo;
+     caption = body.caption;
+     parseMode = body.parseMode || body.parse_mode;
++    id = body.id;
++    category = body.category;
++    entityId = body.entityId;
++    withDatabase = String(body.withDatabase).toLowerCase() === "true";
+   }
+ 
+   // Validate input
+@@ -281,6 +358,8 @@ exports.uploadPhoto = asyncHandler(async (req, res) => {
+ 
+   console.log("Photo uploaded successfully");
+ 
++  let telegramResponseData;
++
+   if (useDocumentUpload) {
+     const document = result.result.document;
+     console.log("Getting file info for document:", document.file_id);
+@@ -293,42 +372,55 @@ exports.uploadPhoto = asyncHandler(async (req, res) => {
+       document.file_name,
+     );
+ 
+-    return res.status(200).json({
+-      success: true,
+-      data: {
+-        file_size: document.file_size,
+-        file_name: document.file_name,
+-        file_url: proxyUrl,
+-        file_path: fileInfo.file_path,
+-      },
+-    });
+-  }
+-
+-  // Get all photo sizes
+-  const photos = result.result.photo;
+-
+-  // Get the largest photo (original quality)
+-  const originalPhoto = photos[photos.length - 1];
+-
+-  console.log("Getting file info for original photo:", originalPhoto.file_id);
+-
+-  // Get file path from Telegram
+-  const fileInfo = await getFileInfo(originalPhoto.file_id);
+-
+-  console.log("File info received:", fileInfo);
++    telegramResponseData = {
++      size: document.file_size,
++      name: document.file_name,
++      url: proxyUrl,
++      path: fileInfo.file_path,
++      fileId: document.file_id,
++    };
++  } else {
++    // Get all photo sizes
++    const photos = result.result.photo;
++    // Get the largest photo (original quality)
++    const originalPhoto = photos[photos.length - 1];
++
++    console.log("Getting file info for original photo:", originalPhoto.file_id);
++    // Get file path from Telegram
++    const fileInfo = await getFileInfo(originalPhoto.file_id);
++    console.log("File info received:", fileInfo);
+ 
+-  // Build proxy URL
+-  const proxyUrl = buildProxyUrl(originalPhoto.file_id, fileInfo.file_path);
++    // Build proxy URL
++    const proxyUrl = buildProxyUrl(originalPhoto.file_id, fileInfo.file_path);
+ 
+-  res.status(200).json({
+-    success: true,
+-    data: {
+-      file_size: originalPhoto.file_size,
++    telegramResponseData = {
++      size: originalPhoto.file_size,
+       width: originalPhoto.width,
+       height: originalPhoto.height,
+-      file_url: proxyUrl,
+-    },
+-  });
++      url: proxyUrl,
++      path: fileInfo.file_path,
++      fileId: originalPhoto.file_id,
++    };
++  }
++
++  if (withDatabase) {
++    const finalFileName = telegramResponseData.name || fileName || "photo";
++    const dbFile = await FileService.saveTelegramFileToDatabase(
++      fileData,
++      finalFileName,
++      getMimeType(getFileExtension(finalFileName)),
++      id,
++      category,
++      entityId,
++      telegramResponseData.path || telegramResponseData.url,
++      telegramResponseData.fileId,
++      telegramResponseData.size,
++      { width: telegramResponseData.width, height: telegramResponseData.height }
++    );
++    return res.status(200).json({ success: true, data: dbFile });
++  }
++
++  return res.status(200).json({ success: true, data: telegramResponseData });
+ });
+ 
+ // Download photo route handler
+@@ -670,12 +762,21 @@ exports.uploadVideo = asyncHandler(async (req, res) => {
+   let fileData = null;
+   let fileName = null;
+ 
++  let id = null;
++  let category = null;
++  let entityId = null;
++  let withDatabase = false;
++
+   // Parse request based on content type
+   if (contentType.includes("multipart/form-data")) {
+     const formData = req.body;
+     chatId = formData.chat_id;
+     caption = formData.caption;
+     parseMode = formData.parse_mode;
++    id = formData.id;
++    category = formData.category;
++    entityId = formData.entityId;
++    withDatabase = String(formData.withDatabase).toLowerCase() === "true";
+     const requestedFileName =
+       formData.file_name || formData.fileName || formData.name;
+ 
+@@ -692,6 +793,10 @@ exports.uploadVideo = asyncHandler(async (req, res) => {
+     videoNetworkUrl = body.videoNetworkUrl || body.video;
+     caption = body.caption;
+     parseMode = body.parseMode || body.parse_mode;
++    id = body.id;
++    category = body.category;
++    entityId = body.entityId;
++    withDatabase = String(body.withDatabase).toLowerCase() === "true";
+   }
+ 
+   // Validate input
+@@ -752,24 +857,35 @@ exports.uploadVideo = asyncHandler(async (req, res) => {
+     ? buildProxyUrl(video.thumbnail.file_id, thumbnail.file_path)
+     : null;
+ 
+-  res.status(200).json({
+-    success: true,
+-    data: {
+-      file_size: video.file_size,
+-      width: video.width,
+-      height: video.height,
+-      file_url: proxyUrl,
+-      duration: video.duration,
+-      thumbnail: thumbnail
+-        ? {
+-            file_size: thumbnail.file_size,
+-            width: thumbnail.width,
+-            height: thumbnail.height,
+-            file_url: proxyUrlThumbnail,
+-          }
+-        : null,
+-    },
+-  });
++  const telegramResponseData = {
++    size: video.file_size,
++    width: video.width,
++    height: video.height,
++    url: proxyUrl,
++    thumbnail: proxyUrlThumbnail,
++    path: fileInfo.file_path,
++    name: video.file_name,
++    duration: video.duration,
++  };
++
++  if (withDatabase) {
++    const finalFileName = telegramResponseData.name || fileName || "video.mp4";
++    const dbFile = await FileService.saveTelegramFileToDatabase(
++      fileData,
++      finalFileName,
++      getMimeType(getFileExtension(finalFileName)),
++      id,
++      category,
++      entityId,
++      telegramResponseData.path || telegramResponseData.url,
++      video.file_id,
++      telegramResponseData.size,
++      { width: telegramResponseData.width, height: telegramResponseData.height, duration: telegramResponseData.duration }
++    );
++    return res.status(200).json({ success: true, data: dbFile });
++  }
++
++  return res.status(200).json({ success: true, data: telegramResponseData });
+ });
+ 
+ // Upload document route handler
+@@ -783,12 +899,21 @@ exports.uploadDocument = asyncHandler(async (req, res) => {
+   let fileData = null;
+   let fileName = null;
+ 
++  let id = null;
++  let category = null;
++  let entityId = null;
++  let withDatabase = false;
++
+   // Parse request based on content type
+   if (contentType.includes("multipart/form-data")) {
+     const formData = req.body;
+     chatId = formData.chat_id;
+     caption = formData.caption;
+     parseMode = formData.parse_mode;
++    id = formData.id;
++    category = formData.category;
++    entityId = formData.entityId;
++    withDatabase = String(formData.withDatabase).toLowerCase() === "true";
+     const requestedFileName =
+       formData.file_name || formData.fileName || formData.name;
+ 
+@@ -805,6 +930,10 @@ exports.uploadDocument = asyncHandler(async (req, res) => {
+     documentNetworkUrl = body.documentNetworkUrl || body.document;
+     caption = body.caption;
+     parseMode = body.parseMode || body.parse_mode;
++    id = body.id;
++    category = body.category;
++    entityId = body.entityId;
++    withDatabase = String(body.withDatabase).toLowerCase() === "true";
+   }
+ 
+   // Validate input
+@@ -858,11 +987,30 @@ exports.uploadDocument = asyncHandler(async (req, res) => {
+     document.file_name,
+   );
+ 
+-  res.status(200).json({
+-    success: true,
+-    data: {
+-      file_size: document.file_size,
+-      file_url: proxyUrl,
+-    },
+-  });
++  const telegramResponseData = {
++    size: document.file_size,
++    url: proxyUrl,
++    name: document.file_name,
++    path: fileInfo.file_path,
++    fileId: document.file_id,
++  };
++
++  if (withDatabase) {
++    const finalFileName = telegramResponseData.name || fileName || "document";
++    const dbFile = await FileService.saveTelegramFileToDatabase(
++      fileData,
++      finalFileName,
++      getMimeType(getFileExtension(finalFileName)),
++      id,
++      category,
++      entityId,
++      telegramResponseData.path || telegramResponseData.url,
++      telegramResponseData.fileId,
++      telegramResponseData.size,
++      {}
++    );
++    return res.status(200).json({ success: true, data: dbFile });
++  }
++
++  return res.status(200).json({ success: true, data: telegramResponseData });
+ });
+diff --git "a/D:\\nodejs_projects\\reline_code_backend\\features\\files_telegram/filesTelegramValidator.js" "b/d:\\nodejs_projects\\bm_backend\\features\\files\\files_telegram/filesTelegramValidator.js"
+index 22d3169..aede093 100644
+--- "a/D:\\nodejs_projects\\reline_code_backend\\features\\files_telegram/filesTelegramValidator.js"
++++ "b/d:\\nodejs_projects\\bm_backend\\features\\files\\files_telegram/filesTelegramValidator.js"
+@@ -1,5 +1,5 @@
+ const { check } = require("express-validator");
+-const validatorMiddleware = require("../../middlewares/validatorMiddleware");
++const validatorMiddleware = require("../../../middlewares/validatorMiddleware");
+ 
+ // Upload photo validator
+ exports.uploadPhotoValidator = [
+@@ -20,6 +20,13 @@ exports.uploadPhotoValidator = [
+     .optional()
+     .isIn(["Markdown", "HTML"])
+     .withMessage("parseMode must be Markdown or HTML"),
++  check("withDatabase")
++    .optional()
++    .isBoolean()
++    .withMessage("withDatabase must be a boolean (true or false)"),
++  check("id").optional().isString().withMessage("id must be a string"),
++  check("category").optional().isString(),
++  check("entityId").optional().isString(),
+   validatorMiddleware,
+ ];
+ 
+@@ -104,6 +111,13 @@ exports.uploadVideoValidator = [
+     .optional()
+     .isIn(["Markdown", "HTML"])
+     .withMessage("parseMode must be Markdown or HTML"),
++  check("withDatabase")
++    .optional()
++    .isBoolean()
++    .withMessage("withDatabase must be a boolean (true or false)"),
++  check("id").optional().isString().withMessage("id must be a string"),
++  check("category").optional().isString(),
++  check("entityId").optional().isString(),
+   validatorMiddleware,
+ ];
+ 
+@@ -126,5 +140,12 @@ exports.uploadDocumentValidator = [
+     .optional()
+     .isIn(["Markdown", "HTML"])
+     .withMessage("parseMode must be Markdown or HTML"),
++  check("withDatabase")
++    .optional()
++    .isBoolean()
++    .withMessage("withDatabase must be a boolean (true or false)"),
++  check("id").optional().isString().withMessage("id must be a string"),
++  check("category").optional().isString(),
++  check("entityId").optional().isString(),
+   validatorMiddleware,
+ ];

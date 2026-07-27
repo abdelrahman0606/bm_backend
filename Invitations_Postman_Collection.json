@@ -1,0 +1,243 @@
+{
+  "info": {
+    "name": "BM Backend - Invitations",
+    "description": "CRUD operations and validation for the Invitations feature.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Create Invitation",
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{bearer_token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"companyId\": \"company-123\",\n  \"type\": \"employee\",\n  \"role\": \"developer\",\n  \"employeeType\": \"full-time\",\n  \"expiredAt\": \"2026-12-31T23:59:59Z\",\n  \"jobs\": [\"frontend\", \"backend\"],\n  \"permissions\": [\n    {\n      \"resourceType\": \"company\",\n      \"resourceId\": \"6a530904cc51889a7d9d24cb\",\n      \"resourceName\": \"Company test 2\",\n      \"actions\": [\"fullAccess\"]\n    }\n  ]\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/api/v1/invitations",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "invitations"
+          ]
+        }
+      }
+    },
+    {
+      "name": "Get All Invitations",
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{bearer_token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/api/v1/invitations?page=0&limit=10",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "invitations"
+          ],
+          "query": [
+            {
+              "key": "page",
+              "value": "0"
+            },
+            {
+              "key": "limit",
+              "value": "10"
+            },
+            {
+              "key": "type",
+              "value": "employee",
+              "disabled": true
+            },
+            {
+              "key": "status",
+              "value": "pending",
+              "disabled": true
+            },
+            {
+              "key": "companyId",
+              "value": "company-123",
+              "disabled": true
+            },
+            {
+              "key": "search",
+              "value": "REGICODE",
+              "disabled": true
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "Get Invitation By ID",
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{bearer_token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/api/v1/invitations/invitation-id-here",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "invitations",
+            "invitation-id-here"
+          ]
+        }
+      }
+    },
+    {
+      "name": "Update Invitation",
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{bearer_token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "PUT",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"status\": \"accepted\",\n  \"role\": \"senior-developer\"\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/api/v1/invitations/invitation-id-here",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "invitations",
+            "invitation-id-here"
+          ]
+        }
+      }
+    },
+    {
+      "name": "Delete Invitation",
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{bearer_token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "DELETE",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/api/v1/invitations/invitation-id-here",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "invitations",
+            "invitation-id-here"
+          ]
+        }
+      }
+    },
+    {
+      "name": "Validate Invitation Code",
+      "request": {
+        "auth": {
+          "type": "noauth"
+        },
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"registrationCode\": \"YOUR_REGI_CODE_HERE\"\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/api/v1/invitations/validate",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "invitations",
+            "validate"
+          ]
+        }
+      }
+    }
+  ],
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:8000",
+      "type": "string"
+    },
+    {
+      "key": "bearer_token",
+      "value": "paste_your_jwt_token_here",
+      "type": "string"
+    }
+  ]
+}

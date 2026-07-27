@@ -21,6 +21,7 @@ const filesTelegramRoute = require("./features/files/files_telegram/filesTelegra
 const filesRoute = require("./features/files/fileRoute");
 const canvasRoute = require("./features/canvas");
 const companyRoute = require("./features/companies/companyRoute");
+const invitationRoute = require("./features/invitations/invitationRoute");
 const notificationRoute = require("./features/notifications/notificationRoutes");
 const firebaseService = require("./features/notifications/firebaseService");
 
@@ -52,6 +53,7 @@ app.use(express.json());
 app.use("/api/v1/users", userRoute);
 app.use("/api/v1/auth", authRoute);
 app.use("/api/v1/companies", companyRoute);
+app.use("/api/v1/invitations", invitationRoute);
 // Tasks Management Central Route
 app.use("/api/v1/tasks-management", tasksManagementRoute);
 

@@ -12,12 +12,15 @@ const validateRegister = [
     .withMessage("Password must be at least 6 characters")
     .matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/)
     .withMessage("Password must contain uppercase, lowercase and number"),
-  body("full_name")
+  body("fullName")
     .trim()
     .notEmpty()
     .withMessage("Full name is required")
     .isLength({ min: 2 })
     .withMessage("Full name must be at least 2 characters"),
+  body("invitationCode")
+    .notEmpty()
+    .withMessage("Invitation code is required"),
   body("phone")
     .optional()
     .isMobilePhone()
@@ -90,7 +93,9 @@ const validateRefreshToken = [
 ];
 
 const validateGoogleAuth = [
-  body("id_token").notEmpty().withMessage("Google id_token is required"),
+  body("idToken").notEmpty().withMessage("Google idToken is required"),
+  body("authType").optional().isString(),
+  body("invitationCode").optional().isString(),
 ];
 
 module.exports = {
