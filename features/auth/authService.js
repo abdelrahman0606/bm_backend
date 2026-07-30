@@ -10,7 +10,30 @@ const JWT_SECRET =
   process.env.JWT_SECRET || "your-secret-key-change-in-production";
 const JWT_EXPIRE = process.env.JWT_EXPIRE || "7d";
 const REFRESH_TOKEN_EXPIRE = process.env.REFRESH_TOKEN_EXPIRE || "30d";
-const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
+
+// Create OAuth2 clients for different platforms
+const googleClientWeb = new OAuth2Client(process.env.GOOGLE_CLIENT_ID_WEB);
+const googleClientDesktop = new OAuth2Client(
+  process.env.GOOGLE_CLIENT_ID_DESKTOP,
+);
+
+// Get appropriate OAuth2 client based on platform
+const getOAuthClient = (platform) => {
+  if (platform === "windows") {
+    return googleClientDesktop;
+  }
+  // Default to web for web and android platforms
+  return googleClientWeb;
+};
+
+// Get appropriate Google Client ID based on platform
+const getGoogleClientId = (platform) => {
+  if (platform === "windows") {
+    return process.env.GOOGLE_CLIENT_ID_DESKTOP;
+  }
+  // Default to web for web and android platforms
+  return process.env.GOOGLE_CLIENT_ID_WEB;
+};
 
 // Generate JWT Token
 const generateToken = (id) =>
@@ -141,12 +164,14 @@ exports.login = async (email, password) => {
   };
 };
 
-exports.googleAuth = async (idToken, authType, invitationCode) => {
+exports.googleAuth = async (idToken, platform = "web", authType, invitationCode) => {
   let payload;
   try {
-    const ticket = await googleClient.verifyIdToken({
+    const oauthClient = getOAuthClient(platform);
+    const clientId = getGoogleClientId(platform);
+    const ticket = await oauthClient.verifyIdToken({
       idToken,
-      audience: process.env.GOOGLE_CLIENT_ID,
+      audience: clientId,
     });
     payload = ticket.getPayload();
   } catch (error) {

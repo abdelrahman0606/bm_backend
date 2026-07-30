@@ -7,7 +7,7 @@ const StatusService = require("../statuses/statusService");
 const UserModel = require("../../users/userModel");
 const ActivityService = require("../activities/activityService");
 const { ActivityAction, ActivityEntityType } = require("../activities/activityEnums");
-
+const IssueModel = require("../issues/issueModel");
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
 /**
@@ -69,6 +69,79 @@ async function appendMembers(projectObj) {
     };
   });
   return projectObj;
+}
+
+/**
+ * Append dynamic analytics to projects based on real-time Issue calculations.
+ */
+async function appendAnalytics(projects) {
+  if (!projects || projects.length === 0) return projects;
+
+  const projectIds = projects.map((p) => p._id || p.id);
+  const now = new Date();
+
+  const analyticsResult = await IssueModel.aggregate([
+    { $match: { projectId: { $in: projectIds }, deletedAt: null, archivedAt: null } },
+    {
+      $lookup: {
+        from: "statuses",
+        localField: "statusId",
+        foreignField: "_id",
+        as: "statusDoc"
+      }
+    },
+    { $unwind: { path: "$statusDoc", preserveNullAndEmptyArrays: true } },
+    {
+      $group: {
+        _id: "$projectId",
+        tasksCount: { $sum: 1 },
+        completedTasksCount: {
+          $sum: { $cond: [{ $eq: ["$statusDoc.statusType", "done"] }, 1, 0] }
+        },
+        overdueTasksCount: {
+          $sum: {
+            $cond: [
+              {
+                $and: [
+                  { $ne: ["$dueDate", null] },
+                  { $lt: ["$dueDate", now] },
+                  { $ne: ["$statusDoc.statusType", "done"] }
+                ]
+              }, 1, 0
+            ]
+          }
+        }
+      }
+    }
+  ]);
+
+  const analyticsMap = {};
+  analyticsResult.forEach((item) => {
+    analyticsMap[item._id.toString()] = item;
+  });
+
+  return projects.map((p) => {
+    const pId = (p._id || p.id).toString();
+    const data = analyticsMap[pId] || { tasksCount: 0, completedTasksCount: 0, overdueTasksCount: 0 };
+    
+    const tasksCount = data.tasksCount || 0;
+    const completedTasksCount = data.completedTasksCount || 0;
+    const overdueTasksCount = data.overdueTasksCount || 0;
+    const progress = tasksCount > 0 ? (completedTasksCount / tasksCount) * 100 : 0;
+    const membersCount = Array.isArray(p.members) ? p.members.length : 0;
+
+    p.analytics = {
+      tasksCount,
+      completedTasksCount,
+      overdueTasksCount,
+      membersCount,
+      filesCount: p.analytics?.filesCount || 0,
+      commentsCount: p.analytics?.commentsCount || 0,
+      progress
+    };
+
+    return p;
+  });
 }
 
 // ── Service ──────────────────────────────────────────────────────────────────
@@ -608,9 +681,11 @@ class ProjectService {
         ProjectModel.countDocuments(filter),
       ]);
 
-      const projectsWithMembers = await Promise.all(
+      let projectsWithMembers = await Promise.all(
         projects.map((p) => appendMembers(p))
       );
+
+      projectsWithMembers = await appendAnalytics(projectsWithMembers);
 
       return {
         projects: projectsWithMembers,
@@ -647,7 +722,9 @@ class ProjectService {
         throw new ApiError("Project not found", 404);
       }
 
-      return appendMembers(project);
+      const projectWithMembers = await appendMembers(project);
+      const projectsWithAnalytics = await appendAnalytics([projectWithMembers]);
+      return projectsWithAnalytics[0];
     } catch (error) {
       if (error instanceof ApiError) throw error;
       throw new ApiError(`Failed to fetch project: ${error.message}`, 500);

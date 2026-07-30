@@ -379,6 +379,17 @@ class IssueService {
     const [statsResult] = await IssueModel.aggregate([
       { $match: { projectId: pId } },
       {
+        $lookup: {
+          from: "statuses",
+          localField: "statusId",
+          foreignField: "_id",
+          as: "statusDoc"
+        }
+      },
+      {
+        $unwind: { path: "$statusDoc", preserveNullAndEmptyArrays: true }
+      },
+      {
         $facet: {
           general: [
             {
@@ -394,7 +405,7 @@ class IssueService {
                         $and: [
                           { $eq: ["$deletedAt", null] },
                           { $eq: ["$archivedAt", null] },
-                          { $ne: ["$completedAt", null] }
+                          { $eq: ["$statusDoc.statusType", "done"] }
                         ]
                       }, 1, 0
                     ]
@@ -407,7 +418,7 @@ class IssueService {
                         $and: [
                           { $eq: ["$deletedAt", null] },
                           { $eq: ["$archivedAt", null] },
-                          { $eq: ["$completedAt", null] }
+                          { $ne: ["$statusDoc.statusType", "done"] }
                         ]
                       }, 1, 0
                     ]
@@ -500,7 +511,7 @@ class IssueService {
             { $group: { _id: "$sprintId", count: { $sum: 1 } } }
           ],
           byDueDate: [
-            { $match: { deletedAt: null, archivedAt: null, completedAt: null } },
+            { $match: { deletedAt: null, archivedAt: null, "statusDoc.statusType": { $ne: "done" } } },
             {
               $group: {
                 _id: null,
@@ -522,7 +533,7 @@ class IssueService {
                 _id: "$assignedTo",
                 assignedIssuesCount: { $sum: 1 },
                 completedIssuesCount: {
-                  $sum: { $cond: [{ $ne: ["$completedAt", null] }, 1, 0] }
+                  $sum: { $cond: [{ $eq: ["$statusDoc.statusType", "done"] }, 1, 0] }
                 }
               }
             },

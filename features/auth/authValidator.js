@@ -94,6 +94,11 @@ const validateRefreshToken = [
 
 const validateGoogleAuth = [
   body("idToken").notEmpty().withMessage("Google idToken is required"),
+  body("platform")
+    .notEmpty()
+    .withMessage("Platform is required")
+    .isIn(["web", "android", "windows"])
+    .withMessage("Platform must be one of: web, android, windows"),
   body("authType").optional().isString(),
   body("invitationCode").optional().isString(),
 ];
