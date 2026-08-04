@@ -12,7 +12,6 @@
     "build": "node build/build.js",
     "build:linux": "node build/build.js --target=linux"
   },
-
   "keywords": [],
   "author": "",
   "license": "ISC",
@@ -34,6 +33,7 @@
     "multer": "^2.0.2",
     "simple-git": "^3.28.0",
     "slugify": "^1.6.6",
+    "socket.io": "^4.8.3",
     "stripe": "^22.0.2",
     "uuid": "^14.0.0"
   },

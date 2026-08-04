@@ -274,6 +274,8 @@ exports.getUserByToken = async (token) => {
 
     return {
       user: await buildUserResponse(user),
+      token,
+      refreshToken: generateRefreshToken(user._id),
     };
   } catch (error) {
     if (error.name === "TokenExpiredError") {

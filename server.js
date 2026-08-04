@@ -1,6 +1,32 @@
-const express = require("express");
+// ── Environment loading ────────────────────────────────────────────────────
+// Must be the very first thing that runs so every subsequently-required module
+// can read process.env.* at module scope.
+//
+// Path strategy (in priority order):
+//   1. __dirname — available when running as a plain Node.js script
+//   2. path.dirname(process.execPath) — SEA binary: __dirname is undefined
+//      inside the embedded script, but process.execPath is the binary itself
+//      and config.env lives next to it in the production/ directory.
+//
+// This makes env loading cwd-independent: PM2, systemd, Docker, SEA, and
+// direct invocation from any working directory all resolve the same file.
+const path = require("path");
 const dotenv = require("dotenv");
-dotenv.config({ path: "./config.env" });
+
+const _configDir =
+  typeof __dirname !== "undefined"
+    ? __dirname                          // plain node server.js
+    : path.dirname(process.execPath);   // SEA binary
+
+dotenv.config({ path: path.join(_configDir, "config.env") });
+
+
+const express = require("express");
+const http = require("http");
+const { Server } = require("socket.io");
+const socketManager = require("./infrastructure/realtime/socketManager");
+const { authenticateSocket } = require("./infrastructure/realtime/socketAuth");
+const SocketGateway = require("./infrastructure/realtime/socketGateway");
 
 const morgan = require("morgan");
 const dbConnection = require("./config/database");
@@ -70,7 +96,30 @@ app.use((req, res, next) =>
 app.use(globalError);
 
 const PORT = process.env.PORT || 8000;
-const server = app.listen(PORT, () => {
+const httpServer = http.createServer(app);
+
+// Initialize Socket.IO
+const io = new Server(httpServer, {
+  cors: {
+    origin: "*",
+    methods: ["GET", "POST"]
+  }
+});
+
+io.use(authenticateSocket);
+
+io.on("connection", (socket) => {
+  socketManager.addSocket(socket);
+
+  socket.on("disconnect", () => {
+    socketManager.removeSocket(socket.id);
+  });
+});
+
+const socketGateway = new SocketGateway(io, socketManager);
+global.socketGateway = socketGateway;
+
+const server = httpServer.listen(PORT, () => {
   console.log(`Server is running on
      http://localhost:${PORT}`);
 });

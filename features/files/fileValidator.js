@@ -51,5 +51,7 @@ exports.getFilesValidator = [
   query("scope").optional().isObject(),
   // We can validate that if scope is provided, its values are strings
   query("scope.*").optional().isString(),
+  query("page").optional().isInt({ min: 1 }).withMessage("page must be a positive integer"),
+  query("limit").optional().isInt({ min: 1, max: 100 }).withMessage("limit must be a positive integer between 1 and 100"),
   validatorMiddleware,
 ];

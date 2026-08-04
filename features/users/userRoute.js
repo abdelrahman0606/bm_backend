@@ -2,6 +2,7 @@ const express = require("express");
 
 const router = express.Router();
 const userService = require("./userService");
+const socketManager = require("../../infrastructure/realtime/socketManager");
 const {
   validateUserCreate,
   validateUserUpdate,
@@ -39,6 +40,20 @@ router.get("/", async (req, res, next) => {
       data: result.users,
       pagination: result.pagination,
       message: "Users fetched successfully",
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Get online users
+router.get("/online", async (req, res, next) => {
+  try {
+    const onlineUsers = socketManager.getConnectedUsers();
+    res.status(200).json({
+      success: true,
+      data: onlineUsers,
+      message: "Online users fetched successfully",
     });
   } catch (error) {
     next(error);

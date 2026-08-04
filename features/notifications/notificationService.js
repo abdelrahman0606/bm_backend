@@ -83,6 +83,13 @@ class NotificationService {
       });
     }
 
+    // Dispatch realtime websocket notification if gateway is initialized
+    if (global.socketGateway) {
+      global.socketGateway.sendToUser(targetUser.id || targetUser._id.toString(), "new_notification", {
+        notification: notification.toObject ? notification.toObject() : notification
+      });
+    }
+
     return notification;
   }
 

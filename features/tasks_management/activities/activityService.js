@@ -1,10 +1,10 @@
 const ActivityModel = require("./activityModel");
 const ApiError = require("../../../utils/apiError");
 const ProjectModel = require("../projects/projectModel");
-// We can import UserModel from features/users/userModel if needed, but it's on a different DB connection.
-// To keep it simple and performant, we might just return the IDs or fetch them in a batch if strictly required.
-// For now, we will return the activities as they are, frontend usually resolves users via a cached map,
-// but we will provide an explicit method if full population is demanded later.
+const ProjectMemberModel = require("../projects/projectMemberModel");
+const UserModel = require("../../users/userModel");
+const socketManager = require("../../../infrastructure/realtime/socketManager");
+const firebaseService = require("../../notifications/firebaseService");
 
 class ActivityService {
   /**
@@ -26,7 +26,54 @@ class ActivityService {
   static async createActivity(data) {
     try {
       const activity = await ActivityModel.create(data);
-      return activity.toObject();
+      const activityObj = activity.toObject();
+
+      // Dispatch notifications to project members asynchronously
+      if (data.projectId) {
+        ProjectMemberModel.find({ projectId: data.projectId, userId: { $ne: data.userId } })
+          .lean()
+          .then(async (members) => {
+            for (const member of members) {
+              const memberId = member.userId.toString();
+              const isOnline = socketManager.getSocketCountForUser(memberId) > 0;
+
+              if (isOnline) {
+                if (global.socketGateway) {
+                  global.socketGateway.sendToUser(memberId, {
+                    type: "task_activity",
+                    activity: activityObj
+                  });
+                }
+              } else {
+                const targetUser = await UserModel.findById(memberId).select("fcmTokens deviceToken").lean();
+                if (targetUser) {
+                  const fcmTokens = targetUser.fcmTokens || [];
+                  if (fcmTokens.length === 0 && targetUser.deviceToken) {
+                    fcmTokens.push(targetUser.deviceToken);
+                  }
+
+                  if (fcmTokens.length > 0) {
+                    const payload = {
+                      title: data.title || "Task Update",
+                      body: data.description || "A task was updated in your project",
+                      data: {
+                        type: "task_activity",
+                        projectId: data.projectId.toString(),
+                        issueId: data.issueId ? data.issueId.toString() : "",
+                      },
+                    };
+                    firebaseService.sendToTokens(fcmTokens, payload).catch((err) =>
+                      console.error("Async FCM push failed for task activity:", err)
+                    );
+                  }
+                }
+              }
+            }
+          })
+          .catch((err) => console.error("Failed to process task activity notifications:", err));
+      }
+
+      return activityObj;
     } catch (error) {
       console.error("[ActivityService] Error creating activity:", error);
       // We don't necessarily want to throw and break the main action (e.g. creating a task)

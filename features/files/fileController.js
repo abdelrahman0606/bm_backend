@@ -15,7 +15,7 @@ class FileController {
 
       if (req.body.scope) {
         try {
-          scope = typeof req.body.scope === "string" ? JSON.parse(req.body.scope) : req.body.scope;
+          scope = typeof req.body.scope === "string" ? JSON.parse(req.body.scope) : { ...req.body.scope };
         } catch (e) {
           // ignore parsing error or handle it
         }
@@ -63,12 +63,13 @@ class FileController {
    */
   static async getFiles(req, res, next) {
     try {
-      const files = await FileService.getFiles(req.query);
+      const result = await FileService.getFiles(req.query);
 
       res.status(200).json({
         success: true,
         message: "Files retrieved successfully",
-        data: files,
+        data: result.files,
+        pagination: result.pagination
       });
     } catch (error) {
       next(error);
@@ -108,7 +109,7 @@ class FileController {
 
       if (req.body.scope) {
         try {
-          scope = typeof req.body.scope === "string" ? JSON.parse(req.body.scope) : req.body.scope;
+          scope = typeof req.body.scope === "string" ? JSON.parse(req.body.scope) : { ...req.body.scope };
         } catch (e) {
           // ignore parsing error or handle it
         }

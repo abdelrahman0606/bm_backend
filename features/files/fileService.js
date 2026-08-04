@@ -151,12 +151,32 @@ class FileService {
       for (const [key, value] of Object.entries(filters.scope)) {
         query[`scope.${key}`] = value;
       }
+    } else {
+      // Handle multer flatten format or flat query parsing: scope[company] = "123"
+      for (const key of Object.keys(filters)) {
+        const match = key.match(/^scope\[(.*?)\]$/);
+        if (match && match[1]) {
+          query[`scope.${match[1]}`] = filters[key];
+        }
+      }
     }
 
-    const files = await FileModel.find(query).sort({ createdAt: -1 }).lean();
+    const page = filters.page ? parseInt(filters.page, 10) : null;
+    const limit = filters.limit ? parseInt(filters.limit, 10) : null;
+
+    let mongoQuery = FileModel.find(query).sort({ createdAt: -1 });
+
+    if (page && limit) {
+      const skip = (page - 1) * limit;
+      mongoQuery = mongoQuery.skip(skip).limit(limit);
+    } else if (limit) {
+      mongoQuery = mongoQuery.limit(limit);
+    }
+
+    const files = await mongoQuery.lean();
     
     // Map _id to id for lean output
-    return files.map(file => {
+    const resultFiles = files.map(file => {
       if (file._id) {
         file.id = file._id;
         delete file._id;
@@ -164,6 +184,21 @@ class FileService {
       delete file.__v;
       return file;
     });
+
+    if (page && limit) {
+      const total = await FileModel.countDocuments(query);
+      return {
+        files: resultFiles,
+        pagination: {
+          total,
+          page,
+          limit,
+          pages: Math.ceil(total / limit)
+        }
+      };
+    }
+
+    return { files: resultFiles, pagination: null };
   }
 }
 
