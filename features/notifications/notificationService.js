@@ -69,12 +69,7 @@ class NotificationService {
     }
 
     // Send push notification if user has tokens
-    const fcmTokens = targetUser.fcmTokens || []; // Fallback to empty array if missing
-
-    // Gracefully handle if user has a single deviceToken instead of array, as fallback
-    if (fcmTokens.length === 0 && targetUser.deviceToken) {
-      fcmTokens.push(targetUser.deviceToken);
-    }
+    const fcmTokens = targetUser.devicesTokens || [];
 
     if (fcmTokens.length > 0) {
       // Async dispatch to avoid blocking the API response

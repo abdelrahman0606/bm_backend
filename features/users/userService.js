@@ -10,7 +10,7 @@ const buildUserResponse = async (user) => ({
     type: user.type,
     status: user.status,
     regiCode: user.regiCode,
-    deviceToken: user.deviceToken,
+    devicesTokens: user.devicesTokens,
     isMale: user.isMale,
     birthday: user.birthday,
     address: user.address,
@@ -177,4 +177,23 @@ exports.updateUserRole = async (id, role) => {
 exports.checkEmailExists = async (email) => {
   const user = await User.findOne({ email: email.toLowerCase() });
   return !!user;
+};
+
+exports.addDeviceToken = async (id, token) => {
+  if (typeof token !== "string" || !token.trim()) {
+    throw new ApiError("Invalid token", 400);
+  }
+
+  const user = await User.findById(id);
+  if (!user) {
+    throw new ApiError("User not found", 404);
+  }
+
+  const currentTokens = user.devicesTokens || [];
+  if (!currentTokens.includes(token)) {
+    user.devicesTokens = [...currentTokens, token];
+    await user.save();
+  }
+
+  return buildUserResponse(user);
 };

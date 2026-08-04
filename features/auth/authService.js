@@ -63,7 +63,7 @@ const buildUserResponse = async (user) => {
     type: user.type,
     status: user.status,
     regiCode: user.regiCode,
-    deviceToken: user.deviceToken,
+    devicesTokens: user.devicesTokens,
     isMale: user.isMale,
     birthday: user.birthday,
     address: user.address,

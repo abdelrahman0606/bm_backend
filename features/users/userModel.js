@@ -32,9 +32,9 @@ const userSchema = new mongoose.Schema(
       type: String,
       default: null,
     },
-    deviceToken: {
-      type: String,
-      default: null,
+    devicesTokens: {
+      type: [String],
+      default: [],
     },
     isMale: {
       type: Boolean,

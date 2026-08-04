@@ -11,6 +11,7 @@ const {
 const {
   validatorMiddleware,
 } = require("../../middlewares/validatorMiddleware");
+const { verifyAuthToken } = require("../../middlewares/authMiddleware");
 
 // Create a new user
 router.post(
@@ -54,6 +55,21 @@ router.get("/online", async (req, res, next) => {
       success: true,
       data: onlineUsers,
       message: "Online users fetched successfully",
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Add device token for current user
+router.patch("/me/device-token", verifyAuthToken, async (req, res, next) => {
+  try {
+    const { token } = req.body;
+    const user = await userService.addDeviceToken(req.userId, token);
+    res.status(200).json({
+      success: true,
+      data: user,
+      message: "Device token added successfully",
     });
   } catch (error) {
     next(error);

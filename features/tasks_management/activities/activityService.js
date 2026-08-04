@@ -5,6 +5,8 @@ const ProjectMemberModel = require("../projects/projectMemberModel");
 const UserModel = require("../../users/userModel");
 const socketManager = require("../../../infrastructure/realtime/socketManager");
 const firebaseService = require("../../notifications/firebaseService");
+const { EVENT_TYPES } = require("../../../core/events/eventTypes");
+const NotificationModel = require("../../notifications/notificationModel");
 
 class ActivityService {
   /**
@@ -33,31 +35,67 @@ class ActivityService {
         ProjectMemberModel.find({ projectId: data.projectId, userId: { $ne: data.userId } })
           .lean()
           .then(async (members) => {
+            const project = await ProjectModel.findById(data.projectId).select("companyId").lean();
+            const companyId = (data.companyId && data.companyId.toString().length === 24) ? data.companyId : (project ? project.companyId : null);
+
             for (const member of members) {
               const memberId = member.userId.toString();
               const isOnline = socketManager.getSocketCountForUser(memberId) > 0;
 
+              let notifType = "general";
+              if (data.action === "ASSIGN") notifType = "assignment";
+              else if (data.action === "CHANGE_STATUS") notifType = "status_changed";
+
+              let notificationObj = null;
+              try {
+                const notification = await NotificationModel.create({
+                  companyId,
+                  userId: memberId,
+                  type: notifType,
+                  title: data.title || "Task Update",
+                  body: data.description || "A task was updated in your project",
+                  createdBy: data.userId,
+                  createdAt: activityObj.createdAt || new Date(),
+                  updatedAt: activityObj.updatedAt || new Date(),
+                  action: {
+                    type: "issue",
+                    entityId: data.issueId ? data.issueId.toString() : "unknown",
+                    route: `/projects/${data.projectId}/issues/${data.issueId || ""}`
+                  },
+                  metadata: {
+                    projectId: data.projectId ? data.projectId.toString() : "",
+                    issueId: data.issueId ? data.issueId.toString() : "",
+                    activityId: (activityObj.id || activityObj._id || "").toString()
+                  }
+                });
+                notificationObj = notification.toObject();
+              } catch (err) {
+                console.error("Failed to create Notification in DB:", err);
+                continue; // Skip if we can't create it
+              }
+
               if (isOnline) {
                 if (global.socketGateway) {
                   global.socketGateway.sendToUser(memberId, {
-                    type: "task_activity",
-                    activity: activityObj
+                    id: notificationObj.id || notificationObj._id.toString(),
+                    type: EVENT_TYPES.NOTIFICATION,
+                    action: notifType,
+                    version: "1",
+                    createdAt: new Date(notificationObj.createdAt || Date.now()).toISOString(),
+                    payload: notificationObj
                   });
                 }
               } else {
-                const targetUser = await UserModel.findById(memberId).select("fcmTokens deviceToken").lean();
+                const targetUser = await UserModel.findById(memberId).select("devicesTokens").lean();
                 if (targetUser) {
-                  const fcmTokens = targetUser.fcmTokens || [];
-                  if (fcmTokens.length === 0 && targetUser.deviceToken) {
-                    fcmTokens.push(targetUser.deviceToken);
-                  }
+                  const fcmTokens = targetUser.devicesTokens || [];
 
                   if (fcmTokens.length > 0) {
                     const payload = {
-                      title: data.title || "Task Update",
-                      body: data.description || "A task was updated in your project",
+                      title: notificationObj.title,
+                      body: notificationObj.body,
                       data: {
-                        type: "task_activity",
+                        type: EVENT_TYPES.NOTIFICATION,
                         projectId: data.projectId.toString(),
                         issueId: data.issueId ? data.issueId.toString() : "",
                       },

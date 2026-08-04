@@ -1,4 +1,5 @@
-const admin = require("firebase-admin");
+const { initializeApp, getApps, cert } = require("firebase-admin/app");
+const { getMessaging } = require("firebase-admin/messaging");
 
 class FirebaseService {
   constructor() {
@@ -20,9 +21,9 @@ class FirebaseService {
     }
 
     try {
-      if (!admin.apps.length) {
-        admin.initializeApp({
-          credential: admin.credential.cert({
+      if (!getApps().length) {
+        initializeApp({
+          credential: cert({
             projectId,
             clientEmail,
             privateKey,
@@ -75,7 +76,7 @@ class FirebaseService {
       const payload = this._buildPayload(notification);
       payload.token = token;
       
-      const response = await admin.messaging().send(payload);
+      const response = await getMessaging().send(payload);
       return response;
     } catch (error) {
       console.error("Failed to send FCM to token:", error.message);
@@ -101,7 +102,7 @@ class FirebaseService {
         const payload = this._buildPayload(notification);
         payload.tokens = chunk;
 
-        const response = await admin.messaging().sendEachForMulticast(payload);
+        const response = await getMessaging().sendEachForMulticast(payload);
         totalSuccess += response.successCount;
         totalFailure += response.failureCount;
       }
@@ -127,7 +128,7 @@ class FirebaseService {
       const payload = this._buildPayload(notification);
       payload.topic = topic;
 
-      const response = await admin.messaging().send(payload);
+      const response = await getMessaging().send(payload);
       return response;
     } catch (error) {
       console.error("Failed to send FCM to topic:", error.message);
