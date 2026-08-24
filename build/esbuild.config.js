@@ -7,6 +7,7 @@
  *   - @grpc/grpc-js   → depends on native http2, tls internals
  *   - @google-cloud/* → optional native addons
  *   - @firebase/*     → re-exports firebase-admin internals
+ *   - sharp / @img/*  → native platform-specific .node binaries
  *
  * Everything else (express, mongoose, axios, multer, stripe, etc.) is
  * pure JavaScript and will be inlined into the bundle.
@@ -36,6 +37,9 @@ const EXTERNALS = [
   "@google-cloud/storage",
   "@google-cloud/firestore",
   "protobufjs",
+  "@wppconnect-team/wppconnect",
+  "puppeteer",
+  "sharp",
   // ── Node built-ins (always external) ───────────────────────────────────
   // esbuild handles these automatically for platform:node, listed for clarity
 ];
@@ -75,7 +79,7 @@ const seaExternalPlugin = {
     build.onLoad({ filter: /.*/, namespace: "sea-external" }, (args) => ({
       contents: [
         `const{createRequire:_cr}=require("module");`,
-        `module.exports=_cr(process.execPath)(${JSON.stringify(args.path)});`,
+        `module.exports=_cr(typeof __filename !== "undefined" ? __filename : process.execPath)(${JSON.stringify(args.path)});`,
       ].join(""),
       loader: "js",
     }));
@@ -110,7 +114,7 @@ const seaExternalPlugin = {
       "process.env.NODE_ENV": JSON.stringify("production"),
     },
 
-    // The plugin handles all EXTERNALS — no separate `external` array needed
+    // The plugin handles most EXTERNALS via createRequire wrappers.
     plugins: [seaExternalPlugin],
 
     logLevel: "info",

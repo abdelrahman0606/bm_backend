@@ -50,6 +50,7 @@ const companyRoute = require("./features/companies/companyRoute");
 const invitationRoute = require("./features/invitations/invitationRoute");
 const notificationRoute = require("./features/notifications/notificationRoutes");
 const firebaseService = require("./features/notifications/firebaseService");
+const whatsappRoute = require("./features/whatsapp/whatsapp.routes");
 
 const ApiError = require("./utils/apiError");
 const globalError = require("./middlewares/errorMiddleware");
@@ -87,6 +88,7 @@ app.use("/api/v1/files-v2", filesTelegramRoute);
 app.use("/api/v1/files", filesRoute);
 app.use("/api/v1/canvas", canvasRoute);
 app.use("/api/v1/notifications", notificationRoute);
+app.use("/api/v1/whatsapp", whatsappRoute);
 
 app.use((req, res, next) =>
   next(new ApiError(`Can't find this route: ${req.originalUrl}`, 400)),

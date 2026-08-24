@@ -123,7 +123,7 @@ if (targetLinux && isWindowsHost) {
   const dlUrl = `https://nodejs.org/dist/${version}/node-${version}-linux-x64.tar.gz`;
   const tarPath = path.join(DIST, "node-linux.tar.gz");
   const extractedNodePath = path.join(DIST, `node-${version}-linux-x64`, "bin", "node");
-  
+
   if (!fs.existsSync(extractedNodePath)) {
     console.log(`   Downloading ${dlUrl} ...`);
     const fetchScript = `fetch('${dlUrl}').then(r => r.arrayBuffer()).then(b => { require('fs').writeFileSync('${tarPath.replace(/\\/g, "/")}', Buffer.from(b)); })`;
@@ -152,8 +152,6 @@ run(
 
 log("Step 5 — Copy native node_modules (firebase-admin + gRPC + all transitive deps)");
 
-// Root packages that are externalised from the SEA bundle.
-// Their full transitive dependency closure will be resolved and copied automatically.
 const NATIVE_ROOTS = [
   "firebase-admin",
   "@grpc/grpc-js",
@@ -161,66 +159,85 @@ const NATIVE_ROOTS = [
   "google-auth-library",
   "google-gax",
   "protobufjs",
+  "@wppconnect-team/wppconnect",
+  "puppeteer",
+  "sharp",
 ];
 
-const srcNodeModules  = path.join(ROOT, "node_modules");
+const srcNodeModules = path.join(ROOT, "node_modules");
 const destNodeModules = path.join(PRODUCTION, "node_modules");
 ensureDir(destNodeModules);
 
-/**
- * Recursively collect all packages that `pkgName` depends on.
- * Reads each package's package.json and walks dependencies/peerDependencies.
- * Returns a Set of package names (scoped or plain).
- */
-function collectDeps(pkgName, visited = new Set()) {
-  if (visited.has(pkgName)) return visited;
-  visited.add(pkgName);
+function findPackageJson(depName, startDir) {
+  let currentDir = startDir;
+  while (true) {
+    const pkgPath = path.join(currentDir, "node_modules", depName, "package.json");
+    if (fs.existsSync(pkgPath)) return pkgPath;
+    const parentDir = path.dirname(currentDir);
+    if (parentDir === currentDir) break;
+    currentDir = parentDir;
+  }
+  return null;
+}
 
-  const pkgJsonPath = path.join(srcNodeModules, pkgName, "package.json");
-  if (!fs.existsSync(pkgJsonPath)) return visited;
+function collectDeps(pkgName, startDir = ROOT, visitedPaths = new Set()) {
+  const pkgJsonPath = findPackageJson(pkgName, startDir);
+  if (!pkgJsonPath) return visitedPaths;
+  
+  const pkgDir = path.dirname(pkgJsonPath);
+  if (visitedPaths.has(pkgDir)) return visitedPaths;
+  visitedPaths.add(pkgDir);
 
   let pkgJson;
   try {
     pkgJson = JSON.parse(fs.readFileSync(pkgJsonPath, "utf8"));
   } catch {
-    return visited;
+    return visitedPaths;
   }
 
   const deps = {
-    ...pkgJson.dependencies,
-    // include peerDependencies that are actually installed
+    ...(pkgJson.dependencies || {}),
     ...(pkgJson.peerDependencies || {}),
+    ...(pkgJson.optionalDependencies || {}),
   };
 
   for (const dep of Object.keys(deps)) {
-    // Skip Node built-ins (they won't be in node_modules)
-    if (!fs.existsSync(path.join(srcNodeModules, dep))) continue;
-    collectDeps(dep, visited);
+    collectDeps(dep, pkgDir, visitedPaths);
   }
 
-  return visited;
+  return visitedPaths;
 }
 
-// Build the full package set: roots + all transitive dependencies
-const allPackages = new Set();
+const allPaths = new Set();
 for (const root of NATIVE_ROOTS) {
-  collectDeps(root, allPackages);
+  collectDeps(root, ROOT, allPaths);
 }
 
-console.log(`   Resolved ${allPackages.size} packages (roots + transitive deps)`);
+console.log(`   Resolved ${allPaths.size} packages (roots + transitive deps)`);
+
+function copyPackage(src, dest) {
+  ensureDir(dest);
+  const entries = fs.readdirSync(src, { withFileTypes: true });
+  for (const entry of entries) {
+    if (entry.name === "node_modules") continue; // Skip nested node_modules, copy individually
+    const srcPath = path.join(src, entry.name);
+    const destPath = path.join(dest, entry.name);
+    if (entry.isDirectory()) {
+      copyDir(srcPath, destPath);
+    } else {
+      fs.copyFileSync(srcPath, destPath);
+    }
+  }
+}
 
 let copied = 0;
-for (const pkg of [...allPackages].sort()) {
-  const srcPkg = path.join(srcNodeModules, pkg);
-  if (fs.existsSync(srcPkg)) {
-    const destPkg = path.join(destNodeModules, pkg);
-    if (!fs.existsSync(destPkg)) {           // skip if already copied (e.g. shared dep)
-      copyDir(srcPkg, destPkg);
-      copied++;
-    }
-    process.stdout.write(`   ✓ ${pkg}\n`);
-  } else {
-    console.log(`   Skipped (not installed): ${pkg}`);
+for (const pkgDir of [...allPaths].sort()) {
+  const relativePath = path.relative(srcNodeModules, pkgDir);
+  const destPkgDir = path.join(destNodeModules, relativePath);
+  
+  if (!fs.existsSync(destPkgDir)) {
+    copyPackage(pkgDir, destPkgDir);
+    copied++;
   }
 }
 console.log(`\n   ✅  Copied ${copied} package(s) to production/node_modules`);
@@ -236,7 +253,7 @@ ensureDir(path.join(PRODUCTION, "logs"));
 console.log("   Created: production/uploads/");
 console.log("   Created: production/logs/");
 
-const srcEnv  = path.join(ROOT, "config.env");
+const srcEnv = path.join(ROOT, "config.env");
 const destEnv = path.join(PRODUCTION, "config.env");
 if (fs.existsSync(srcEnv)) {
   fs.copyFileSync(srcEnv, destEnv);
@@ -252,7 +269,7 @@ log("Build Complete — production/ layout");
 function printTree(dir, prefix = "") {
   const entries = fs.readdirSync(dir, { withFileTypes: true })
     .filter(e => !e.name.startsWith(".git"))
-    .slice(0, 30); 
+    .slice(0, 30);
 
   for (let i = 0; i < entries.length; i++) {
     const entry = entries[i];

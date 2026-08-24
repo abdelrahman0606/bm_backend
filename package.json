@@ -16,6 +16,7 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "@wppconnect-team/wppconnect": "^2.2.6",
     "adm-zip": "^0.5.16",
     "axios": "^1.6.0",
     "bcryptjs": "^3.0.3",
@@ -31,6 +32,8 @@
     "mongoose": "^9.1.5",
     "morgan": "^1.10.1",
     "multer": "^2.0.2",
+    "puppeteer": "^25.5.0",
+    "sharp": "^0.35.3",
     "simple-git": "^3.28.0",
     "slugify": "^1.6.6",
     "socket.io": "^4.8.3",
