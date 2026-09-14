@@ -1,0 +1,242 @@
+{
+  "info": {
+    "name": "Attendance API",
+    "description": "Collection for Attendance Feature (Online & Offline Check-ins)",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Generate QR Session",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token}}",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/attendance/qr",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "attendance",
+            "qr"
+          ]
+        },
+        "description": "Generates a secure, short-lived QR token session for offline check-ins. (Should be called by Admin/HR roles)."
+      },
+      "response": []
+    },
+    {
+      "name": "Check In (Offline)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token}}",
+            "type": "text"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n    \"type\": \"offline\",\n    \"qrToken\": \"replace_with_qr_token_hex_string\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/attendance/check-in",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "attendance",
+            "check-in"
+          ]
+        },
+        "description": "Employee scans QR code and sends the token."
+      },
+      "response": []
+    },
+    {
+      "name": "Check In (Online)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token}}",
+            "type": "text"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n    \"type\": \"online\",\n    \"faceEmbedding\": [0.1, 0.5, 0.3, 0.9],\n    \"latitude\": 30.0444,\n    \"longitude\": 31.2357,\n    \"deviceId\": \"device_xyz\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/attendance/check-in",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "attendance",
+            "check-in"
+          ]
+        },
+        "description": "Employee remotely checks in by passing coordinates and face embedding."
+      },
+      "response": []
+    },
+    {
+      "name": "Get Today Attendance",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token}}",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/attendance/today",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "attendance",
+            "today"
+          ]
+        },
+        "description": "Returns the logged in user's attendance status for today."
+      },
+      "response": []
+    },
+    {
+      "name": "Get All Attendances",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token}}",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/attendance?page=0&limit=10",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "attendance"
+          ],
+          "query": [
+            {
+              "key": "page",
+              "value": "0"
+            },
+            {
+              "key": "limit",
+              "value": "10"
+            },
+            {
+              "key": "type",
+              "value": "online",
+              "disabled": true
+            },
+            {
+              "key": "employeeId",
+              "value": "65b...",
+              "disabled": true
+            }
+          ]
+        },
+        "description": "Gets all attendances. Ordinary users will only see their own."
+      },
+      "response": []
+    },
+    {
+      "name": "Register Face Profile",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token}}",
+            "type": "text"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n    \"embedding\": [0.1, 0.5, 0.3, 0.9]\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/attendance/face-profile",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "attendance",
+            "face-profile"
+          ]
+        },
+        "description": "Upsert the logged in user's face embedding."
+      },
+      "response": []
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8000"
+    },
+    {
+      "key": "token",
+      "value": "your_jwt_token_here"
+    }
+  ]
+}
