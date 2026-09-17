@@ -7,6 +7,11 @@ const attendanceSchema = new mongoose.Schema(
       ref: "User",
       required: true,
     },
+    companyId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Company",
+      default: null,
+    },
     type: {
       type: String,
       enum: ["online", "offline"],
@@ -29,6 +34,10 @@ const attendanceSchema = new mongoose.Schema(
       type: Number,
       default: null,
     },
+    address: {
+      type: String,
+      default: null,
+    },
     qrSessionId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "AttendanceQrSession",
@@ -36,6 +45,14 @@ const attendanceSchema = new mongoose.Schema(
     },
     photoUrl: {
       type: String,
+      default: null,
+    },
+    photo: {
+      type: Object,
+      default: null,
+    },
+    similarity: {
+      type: Number,
       default: null,
     },
     deviceId: {
@@ -48,7 +65,7 @@ const attendanceSchema = new mongoose.Schema(
     },
     verificationMethod: {
       type: String,
-      enum: ["qr", "face", "other"],
+      enum: ["qr", "face", "location"],
       required: true,
     },
     similarityPercentage: {

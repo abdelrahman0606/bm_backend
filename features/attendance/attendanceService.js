@@ -4,21 +4,53 @@ const AttendanceQrSession = require("./attendanceQrSessionModel");
 const EmployeeFaceProfile = require("./employeeFaceProfileModel");
 const ApiError = require("../../utils/apiError");
 
-const buildAttendanceResponse = (attendance) => ({
-  _id: attendance._id,
+const buildAttendanceResponse = (attendance) => {
+  const userIdStr =
+    attendance.userId && typeof attendance.userId === "object" && attendance.userId._id
+      ? attendance.userId._id.toString()
+      : attendance.userId
+      ? attendance.userId.toString()
+      : null;
+
+  const compIdStr =
+    attendance.companyId && typeof attendance.companyId === "object" && attendance.companyId._id
+      ? attendance.companyId._id.toString()
+      : attendance.companyId
+      ? attendance.companyId.toString()
+      : null;
+
+  const res = {
+    _id: attendance._id,
     id: attendance.id,
-    userId: attendance.userId,
+    userId: userIdStr,
+    companyId: compIdStr,
     type: attendance.type,
     timestamp: attendance.timestamp,
     locationId: attendance.locationId,
+    photo: attendance.photo !== undefined ? attendance.photo : null,
+    similarity: attendance.similarity !== undefined ? attendance.similarity : null,
     latitude: attendance.latitude,
     longitude: attendance.longitude,
+    address: attendance.address !== undefined ? attendance.address : null,
     verified: attendance.verified,
     verificationMethod: attendance.verificationMethod,
     similarityPercentage: attendance.similarityPercentage,
     createdAt: attendance.createdAt,
     updatedAt: attendance.updatedAt,
-  });
+  };
+
+  if (attendance.userId && typeof attendance.userId === "object" && attendance.userId._id) {
+    res.user = {
+      _id: attendance.userId._id,
+      id: attendance.userId._id.toString(),
+      fullName: attendance.userId.fullName,
+      email: attendance.userId.email,
+      phone: attendance.userId.phone,
+    };
+  }
+
+  return res;
+};
 
 exports.generateQrSession = async () => {
   // Generate a secure random token
@@ -40,7 +72,7 @@ exports.generateQrSession = async () => {
 };
 
 exports.checkIn = async (data, userId) => {
-  const { type, qrToken, faceEmbedding, latitude, longitude, deviceId } = data;
+  const { type, qrToken, faceEmbedding, latitude, longitude, address, deviceId, companyId } = data;
 
   // Check if user already attended today
   const startOfDay = new Date();
@@ -59,6 +91,7 @@ exports.checkIn = async (data, userId) => {
 
   const attendanceData = {
     userId,
+    companyId: companyId || null,
     type,
     deviceId,
     timestamp: new Date(),
@@ -115,6 +148,7 @@ exports.checkIn = async (data, userId) => {
 
     attendanceData.latitude = latitude;
     attendanceData.longitude = longitude;
+    attendanceData.address = address;
     attendanceData.verified = true;
     attendanceData.verificationMethod = "face";
     attendanceData.similarityPercentage = similarity * 100;
@@ -133,7 +167,7 @@ exports.getTodayAttendance = async (userId) => {
   const attendance = await Attendance.findOne({
     userId,
     timestamp: { $gte: startOfDay, $lte: endOfDay },
-  });
+  }).populate("userId", "fullName email phone");
 
   return attendance ? buildAttendanceResponse(attendance) : null;
 };
@@ -167,7 +201,7 @@ exports.getAttendances = async (userId, userRole, query) => {
 
   const skip = page * limit;
   const attendances = await Attendance.find(filter)
-    .populate("userId", "fullName email") // Example population
+    .populate("userId", "fullName email phone")
     .skip(skip)
     .limit(parseInt(limit, 10))
     .sort({ timestamp: -1 });
@@ -175,18 +209,7 @@ exports.getAttendances = async (userId, userRole, query) => {
   const total = await Attendance.countDocuments(filter);
 
   return {
-    attendances: attendances.map((a) => {
-      // Optional: you can include populated user data in the response if needed
-      const res = buildAttendanceResponse(a);
-      if (a.userId && a.userId.fullName) {
-        res.user = {
-          id: a.userId._id,
-          fullName: a.userId.fullName,
-          email: a.userId.email,
-        };
-      }
-      return res;
-    }),
+    attendances: attendances.map((a) => buildAttendanceResponse(a)),
     pagination: {
       page: parseInt(page, 10),
       limit: parseInt(limit, 10),
@@ -197,24 +220,81 @@ exports.getAttendances = async (userId, userRole, query) => {
 };
 
 exports.registerFaceProfile = async (data, userId) => {
-  const { embedding } = data;
-  
-  let profile = await EmployeeFaceProfile.findOne({ userId });
-  if (profile) {
-    profile.embedding = embedding;
-    profile.updatedAt = new Date();
-    await profile.save();
+  const { similarity, photo, companyId } = data;
+
+  const simVal = similarity !== undefined && similarity !== null ? Number(similarity) : null;
+
+  if (simVal === null || isNaN(simVal) || simVal < 0.5) {
+    throw new ApiError("Face verification failed: similarity must be at least 0.5", 400);
+  }
+
+  const startOfDay = new Date();
+  startOfDay.setHours(0, 0, 0, 0);
+  const endOfDay = new Date();
+  endOfDay.setHours(23, 59, 59, 999);
+
+  let attendance = await Attendance.findOne({
+    userId,
+    timestamp: { $gte: startOfDay, $lte: endOfDay },
+  });
+
+  if (attendance) {
+    if (photo !== undefined) attendance.photo = photo;
+    attendance.similarity = simVal;
+    if (companyId !== undefined) attendance.companyId = companyId;
+    attendance.verificationMethod = "face";
+    await attendance.save();
   } else {
-    profile = await EmployeeFaceProfile.create({
+    attendance = await Attendance.create({
       userId,
-      embedding,
+      companyId: companyId || null,
+      type: "online",
+      verified: true,
+      verificationMethod: "face",
+      photo: photo || null,
+      similarity: simVal,
+      timestamp: new Date(),
     });
   }
-  
-  return {
-    id: profile.id,
-    userId: profile.userId,
-    createdAt: profile.createdAt,
-    updatedAt: profile.updatedAt,
-  };
+
+  return buildAttendanceResponse(attendance);
 };
+
+exports.registerLocation = async (data, userId) => {
+  const { latitude, longitude, address, companyId } = data;
+
+  const startOfDay = new Date();
+  startOfDay.setHours(0, 0, 0, 0);
+  const endOfDay = new Date();
+  endOfDay.setHours(23, 59, 59, 999);
+
+  let attendance = await Attendance.findOne({
+    userId,
+    timestamp: { $gte: startOfDay, $lte: endOfDay },
+  });
+
+  if (attendance) {
+    if (latitude !== undefined) attendance.latitude = latitude;
+    if (longitude !== undefined) attendance.longitude = longitude;
+    if (address !== undefined) attendance.address = address;
+    if (companyId !== undefined) attendance.companyId = companyId;
+    attendance.verificationMethod = "location";
+    await attendance.save();
+  } else {
+    attendance = await Attendance.create({
+      userId,
+      companyId: companyId || null,
+      type: "online",
+      verified: true,
+      verificationMethod: "location",
+      latitude: latitude !== undefined ? latitude : null,
+      longitude: longitude !== undefined ? longitude : null,
+      address: address || null,
+      timestamp: new Date(),
+    });
+  }
+
+  return buildAttendanceResponse(attendance);
+};
+
+exports.buildAttendanceResponse = buildAttendanceResponse;

@@ -6,6 +6,7 @@ const {
   validateQrGeneration,
   validateCheckIn,
   validateFaceProfileRegistration,
+  validateLocationRegistration,
 } = require("./attendanceValidator");
 const {
   validatorMiddleware,
@@ -93,11 +94,30 @@ router.post(
   validatorMiddleware,
   async (req, res, next) => {
     try {
-      const profile = await attendanceService.registerFaceProfile(req.body, req.userId);
-      res.status(201).json({
+      const attendance = await attendanceService.registerFaceProfile(req.body, req.userId);
+      res.status(200).json({
         success: true,
-        data: profile,
-        message: "Face profile registered successfully",
+        data: attendance,
+        message: "Attendance recorded successfully",
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+// Register location
+router.post(
+  "/location",
+  validateLocationRegistration,
+  validatorMiddleware,
+  async (req, res, next) => {
+    try {
+      const attendance = await attendanceService.registerLocation(req.body, req.userId);
+      res.status(200).json({
+        success: true,
+        data: attendance,
+        message: "Attendance recorded successfully",
       });
     } catch (error) {
       next(error);
