@@ -1,0 +1,805 @@
+{
+  "info": {
+    "name": "Time Management Sharing",
+    "description": "APIs for sharing Time Management filters between users",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Create Share",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "var jsonData = pm.response.json();",
+              "if (jsonData.success && jsonData.data && jsonData.data.id) {",
+              "    pm.environment.set(\"shareId\", jsonData.data.id);",
+              "}"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{bearer_token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"recipientUserId\": \"{{recipientUserId}}\",\n  \"filterId\": \"{{filterId}}\",\n  \"filterName\": \"Development Apps\",\n  \"filterDefinition\": {\n    \"schemaVersion\": 1,\n    \"operator\": \"and\",\n    \"conditions\": []\n  }\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/time-management-shares",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "time-management-shares"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Get All Shares",
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{bearer_token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/time-management-shares?page=1&limit=20",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "time-management-shares"
+          ],
+          "query": [
+            {
+              "key": "page",
+              "value": "1"
+            },
+            {
+              "key": "limit",
+              "value": "20"
+            },
+            {
+              "key": "status",
+              "value": "pending",
+              "disabled": true
+            }
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Get Received Shares",
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{bearer_token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/time-management-shares/received",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "time-management-shares",
+            "received"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Get Sent Shares",
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{bearer_token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/time-management-shares/sent",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "time-management-shares",
+            "sent"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Get Shares By User",
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{bearer_token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/time-management-shares/user/{{recipientUserId}}",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "time-management-shares",
+            "user",
+            "{{recipientUserId}}"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Get Share By ID",
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{bearer_token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/time-management-shares/{{shareId}}",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "time-management-shares",
+            "{{shareId}}"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Accept Share",
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{bearer_token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "PATCH",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/time-management-shares/{{shareId}}/accept",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "time-management-shares",
+            "{{shareId}}",
+            "accept"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Reject Share",
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{bearer_token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "PATCH",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/time-management-shares/{{shareId}}/reject",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "time-management-shares",
+            "{{shareId}}",
+            "reject"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Cancel Share",
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{bearer_token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "PATCH",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/time-management-shares/{{shareId}}/cancel",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "time-management-shares",
+            "{{shareId}}",
+            "cancel"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Update Share",
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{bearer_token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "PUT",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"filterName\": \"Updated Development Apps\",\n  \"filterDefinition\": {\n    \"schemaVersion\": 1,\n    \"selectedApps\": []\n  }\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/time-management-shares/{{shareId}}",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "time-management-shares",
+            "{{shareId}}"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Revoke Share",
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{bearer_token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "PATCH",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/time-management-shares/{{shareId}}/revoke",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "time-management-shares",
+            "{{shareId}}",
+            "revoke"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Disconnect Share",
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{bearer_token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "PATCH",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/time-management-shares/{{shareId}}/disconnect",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "time-management-shares",
+            "{{shareId}}",
+            "disconnect"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Sync Usage Batch",
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{bearer_token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"batchId\": \"{{batchId}}\",\n  \"filterId\": \"{{filterId}}\",\n  \"recipientId\": \"{{recipientUserId}}\",\n  \"date\": \"2026-10-11\",\n  \"syncType\": \"delta\",\n  \"totalDuration\": 3600000,\n  \"apps\": [\n    {\n      \"appName\": \"Code.exe\",\n      \"totalDuration\": 3600000,\n      \"windows\": [\n        {\n          \"title\": \"bm_backend\",\n          \"durationMs\": 2400000\n        },\n        {\n          \"title\": \"auth-module\",\n          \"durationMs\": 1200000\n        }\n      ]\n    }\n  ]\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/time-management-shares/sync",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "time-management-shares",
+            "sync"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Get Batch Status",
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{bearer_token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/time-management-shares/sync/{{batchId}}",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "time-management-shares",
+            "sync",
+            "{{batchId}}"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Get Time Management Reports",
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{bearer_token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/time-management-shares/reports?role=recipient&startDate=2026-10-01&endDate=2026-10-31",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "time-management-shares",
+            "reports"
+          ],
+          "query": [
+            {
+              "key": "role",
+              "value": "recipient"
+            },
+            {
+              "key": "startDate",
+              "value": "2026-10-01"
+            },
+            {
+              "key": "endDate",
+              "value": "2026-10-31"
+            }
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Create Personal Share",
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{bearer_token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/time-management-shares",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "time-management-shares"
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"shareScope\": \"personal\",\n  \"filterId\": \"{{filterId}}\",\n  \"filterName\": \"My own time\",\n  \"filterDefinition\": {\n    \"schemaVersion\": 1,\n    \"selectedApps\": []\n  }\n}"
+        },
+        "description": "Personal scope: the configuration stays with its owner and is created already active (no recipient approval)."
+      },
+      "response": []
+    },
+    {
+      "name": "Create Company Share",
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{bearer_token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/time-management-shares",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "time-management-shares"
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"shareScope\": \"company\",\n  \"companyId\": \"{{companyId}}\",\n  \"filterId\": \"{{filterId}}\",\n  \"filterName\": \"Company report\",\n  \"filterDefinition\": {\n    \"schemaVersion\": 1,\n    \"selectedApps\": []\n  }\n}"
+        },
+        "description": "Company scope: requires company authorization (owner of the company, or master/admin/manager)."
+      },
+      "response": []
+    },
+    {
+      "name": "Create Automatic Person Share",
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{bearer_token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/time-management-shares",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "time-management-shares"
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"shareScope\": \"person\",\n  \"recipientUserId\": \"{{recipientUserId}}\",\n  \"filterId\": \"{{filterId}}\",\n  \"filterName\": \"Daily report\",\n  \"filterDefinition\": {\n    \"schemaVersion\": 1,\n    \"selectedApps\": []\n  },\n  \"shareMode\": \"automatic\",\n  \"schedule\": {\n    \"type\": \"daily\",\n    \"hour\": 9,\n    \"minute\": 30,\n    \"timezoneOffsetMinutes\": 180,\n    \"enabled\": true\n  }\n}"
+        },
+        "description": "Person scope with automatic sharing. The share is created pending and is only scheduled once the recipient accepts."
+      },
+      "response": []
+    },
+    {
+      "name": "Update Sharing Schedule",
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{bearer_token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "PATCH",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/time-management-shares/{{shareId}}/schedule",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "time-management-shares",
+            "{{shareId}}",
+            "schedule"
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"shareMode\": \"automatic\",\n  \"schedule\": {\n    \"type\": \"hourly\",\n    \"hour\": 2,\n    \"minute\": 0,\n    \"timezoneOffsetMinutes\": 180,\n    \"enabled\": true\n  }\n}"
+        },
+        "description": "Owner only. Switches between manual and automatic sharing and stores the schedule the backend scheduler executes. Changes apply to future occurrences; a closed relationship (rejected/revoked/disconnected/cancelled) cannot be scheduled."
+      },
+      "response": []
+    },
+    {
+      "name": "Share Now (manual)",
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{bearer_token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/time-management-shares/{{shareId}}/share-now",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "time-management-shares",
+            "{{shareId}}",
+            "share-now"
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"dateFrom\": \"2026-10-19\",\n  \"dateTo\": \"2026-10-19\"\n}"
+        },
+        "description": "Owner-initiated delivery of the saved configuration. Refused while the request is pending or after it was revoked/rejected/disconnected."
+      },
+      "response": []
+    },
+    {
+      "name": "Get Share Deliveries",
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{bearer_token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/time-management-shares/{{shareId}}/deliveries?page=1&limit=20",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "time-management-shares",
+            "{{shareId}}",
+            "deliveries"
+          ],
+          "query": [
+            {
+              "key": "page",
+              "value": "1"
+            },
+            {
+              "key": "limit",
+              "value": "20"
+            }
+          ]
+        },
+        "description": "Delivery history of a configuration (owner, recipient, or an authorized member of the company it is bound to)."
+      },
+      "response": []
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8000"
+    },
+    {
+      "key": "bearer_token",
+      "value": "YOUR_BEARER_TOKEN"
+    },
+    {
+      "key": "recipientUserId",
+      "value": "60d5ecb8b392d7001f3e69f1"
+    },
+    {
+      "key": "filterId",
+      "value": "my-filter-id"
+    },
+    {
+      "key": "shareId",
+      "value": "60d5ecb8b392d7001f3e69f2"
+    },
+    {
+      "key": "batchId",
+      "value": "b1c2d3e4-f5a6-7890-bcde-fa1234567890"
+    },
+    {
+      "key": "companyId",
+      "value": "60d5ecb8b392d7001f3e69f3"
+    }
+  ]
+}

@@ -40,6 +40,11 @@ require("./features/canvas/models/CanvasConnectionModel");
 require("./features/canvas/models/CanvasCommentModel");
 require("./features/canvas/models/CanvasActivityModel");
 require("./features/canvas/models/CanvasViewModel");
+// Time Management Sharing Models
+require("./features/time_management_sharing/timeManagementShareModel");
+require("./features/time_management_sharing/timeManagementUsageModel");
+require("./features/time_management_sharing/timeManagementSyncBatchModel");
+require("./features/time_management_sharing/timeManagementShareDeliveryModel");
 const userRoute = require("./features/users/userRoute");
 const authRoute = require("./features/auth/authRoute");
 const tasksManagementRoute = require("./features/tasks_management/tasksManagementRoute");
@@ -53,6 +58,8 @@ const firebaseService = require("./features/notifications/firebaseService");
 const whatsappRoute = require("./features/whatsapp/whatsapp.routes");
 const attendanceRoute = require("./features/attendance/attendanceRoute");
 const myDayRoute = require("./features/my_day/myDayRoute");
+const timeManagementSharingRoute = require("./features/time_management_sharing/timeManagementSharingRoute");
+const timeManagementShareScheduler = require("./features/time_management_sharing/timeManagementShareScheduler");
 
 const ApiError = require("./utils/apiError");
 const globalError = require("./middlewares/errorMiddleware");
@@ -93,6 +100,7 @@ app.use("/api/v1/notifications", notificationRoute);
 app.use("/api/v1/whatsapp", whatsappRoute);
 app.use("/api/v1/attendance", attendanceRoute);
 app.use("/api/v1/my-day", myDayRoute);
+app.use("/api/v1/time-management-shares", timeManagementSharingRoute);
 
 app.use((req, res, next) =>
   next(new ApiError(`Can't find this route: ${req.originalUrl}`, 400)),
@@ -129,6 +137,9 @@ const server = httpServer.listen(PORT, () => {
   console.log(`Server is running on
      http://localhost:${PORT}`);
 });
+
+// Deliver automatic Share Time configurations on their saved schedule.
+timeManagementShareScheduler.start();
 // Handle unhandled promise rejections outside of express routes
 process.on("un", (err) => {
   console.log(`Unhandled Rejection: ${err.name} - ${err.message}`);
