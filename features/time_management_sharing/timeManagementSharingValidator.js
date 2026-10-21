@@ -142,6 +142,71 @@ const validateShareNow = [
     }),
 ];
 
+const validateCreateReportLink = [
+  param("shareId")
+    .notEmpty()
+    .withMessage("shareId is required")
+    .isMongoId()
+    .withMessage("Invalid share ID"),
+  body("dateFrom")
+    .optional()
+    .custom((val) => {
+      if (!isValidDateString(val)) throw new Error("dateFrom must be in YYYY-MM-DD format");
+      return true;
+    }),
+  body("dateTo")
+    .optional()
+    .custom((val) => {
+      if (!isValidDateString(val)) throw new Error("dateTo must be in YYYY-MM-DD format");
+      return true;
+    }),
+  body("expiresInDays")
+    .optional()
+    .isInt({ min: 1, max: 90 })
+    .withMessage("expiresInDays must be between 1 and 90"),
+  body("includeWindows")
+    .optional()
+    .isBoolean()
+    .withMessage("includeWindows must be a boolean"),
+];
+
+const validateLinkId = [
+  param("linkId")
+    .notEmpty()
+    .withMessage("linkId is required")
+    .isMongoId()
+    .withMessage("Invalid link ID"),
+];
+
+const validateListQuery = [
+  query("page").optional().isInt({ min: 1 }).withMessage("page must be a positive integer"),
+  query("limit").optional().isInt({ min: 1, max: 100 }).withMessage("limit must be between 1 and 100"),
+  query("direction")
+    .optional()
+    .isIn(["personal", "outgoing", "incoming"])
+    .withMessage("direction must be personal, outgoing or incoming"),
+  query("status")
+    .optional()
+    .isIn([
+      "pending",
+      "accepted",
+      "rejected",
+      "revoked",
+      "disconnected",
+      "cancelled",
+    ])
+    .withMessage("unknown status"),
+  query("shareScope")
+    .optional()
+    .isIn(SHARE_SCOPES)
+    .withMessage(`shareScope must be one of ${SHARE_SCOPES.join(", ")}`),
+  query("shareMode")
+    .optional()
+    .isIn(SHARE_MODES)
+    .withMessage(`shareMode must be one of ${SHARE_MODES.join(", ")}`),
+  query("search").optional().isString().withMessage("search must be a string"),
+];
+
 const validateShareId = [
   param("shareId")
     .notEmpty()
@@ -265,6 +330,9 @@ const validateReportQuery = [
 ];
 
 module.exports = {
+  validateCreateReportLink,
+  validateLinkId,
+  validateListQuery,
   validateCreateShare,
   validateUpdateShare,
   validateUpdateSchedule,

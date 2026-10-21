@@ -45,6 +45,7 @@ require("./features/time_management_sharing/timeManagementShareModel");
 require("./features/time_management_sharing/timeManagementUsageModel");
 require("./features/time_management_sharing/timeManagementSyncBatchModel");
 require("./features/time_management_sharing/timeManagementShareDeliveryModel");
+require("./features/time_management_sharing/timeManagementShareLinkModel");
 const userRoute = require("./features/users/userRoute");
 const authRoute = require("./features/auth/authRoute");
 const tasksManagementRoute = require("./features/tasks_management/tasksManagementRoute");
@@ -60,6 +61,7 @@ const attendanceRoute = require("./features/attendance/attendanceRoute");
 const myDayRoute = require("./features/my_day/myDayRoute");
 const timeManagementSharingRoute = require("./features/time_management_sharing/timeManagementSharingRoute");
 const timeManagementShareScheduler = require("./features/time_management_sharing/timeManagementShareScheduler");
+const timeManagementPublicRoute = require("./features/time_management_sharing/timeManagementPublicRoute");
 
 const ApiError = require("./utils/apiError");
 const globalError = require("./middlewares/errorMiddleware");
@@ -101,6 +103,9 @@ app.use("/api/v1/whatsapp", whatsappRoute);
 app.use("/api/v1/attendance", attendanceRoute);
 app.use("/api/v1/my-day", myDayRoute);
 app.use("/api/v1/time-management-shares", timeManagementSharingRoute);
+// Public, token-authorized read-only reports (no bearer token: the link IS
+// the credential, resolved server-side).
+app.use("/api/v1/public/time-reports", timeManagementPublicRoute);
 
 app.use((req, res, next) =>
   next(new ApiError(`Can't find this route: ${req.originalUrl}`, 400)),

@@ -1,4 +1,9 @@
 const timeManagementSharingService = require("./timeManagementSharingService");
+const linkService = require("./timeManagementShareLinkService");
+
+/** Absolute base for a public link: configured value first, else this host. */
+const publicBaseUrl = (req) =>
+  process.env.PUBLIC_BASE_URL || `${req.protocol}://${req.get("host")}`;
 
 exports.createShare = async (req, res, next) => {
   try {
@@ -234,6 +239,56 @@ exports.getDeliveries = async (req, res, next) => {
       data: result.deliveries,
       pagination: result.pagination,
       message: "Deliveries fetched successfully",
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+exports.createReportLink = async (req, res, next) => {
+  try {
+    const result = await linkService.createReportLink(
+      req.userId,
+      req.params.shareId,
+      { ...(req.body || {}), baseUrl: publicBaseUrl(req) }
+    );
+    res.status(201).json({
+      success: true,
+      // The token is returned once, at creation: only its hash is stored.
+      data: { ...result.link.toJSON(), url: result.url },
+      message: "Report link created successfully",
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+exports.getReportLinks = async (req, res, next) => {
+  try {
+    const links = await linkService.listReportLinks(
+      req.userId,
+      req.params.shareId
+    );
+    res.status(200).json({
+      success: true,
+      data: links,
+      message: "Report links fetched successfully",
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+exports.revokeReportLink = async (req, res, next) => {
+  try {
+    const link = await linkService.revokeReportLink(
+      req.userId,
+      req.params.linkId
+    );
+    res.status(200).json({
+      success: true,
+      data: link,
+      message: "Report link revoked successfully",
     });
   } catch (error) {
     next(error);

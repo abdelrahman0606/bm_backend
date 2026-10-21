@@ -7,7 +7,7 @@
     "start:dev": "nodemon server.js",
     "start:prod": "cross-env NODE_ENV=production node server.js",
     "start": "node server.js",
-    "test": "node --test features/time_management_sharing/timeManagementSharing.test.js features/time_management_sharing/timeManagementSharingScheduling.test.js features/time_management_sharing/timeManagementSharingRoutes.test.js",
+    "test": "node --test features/time_management_sharing/timeManagementSharing.test.js features/time_management_sharing/timeManagementSharingScheduling.test.js features/time_management_sharing/timeManagementSharingRoutes.test.js features/time_management_sharing/timeManagementShareConfigurations.test.js",
     "build:bundle": "node build/esbuild.config.js",
     "build:obfuscate": "node build/obfuscate.js",
     "build": "node build/build.js",

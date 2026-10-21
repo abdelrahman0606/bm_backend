@@ -5,6 +5,7 @@ const TimeManagementSyncBatchModel = require("./timeManagementSyncBatchModel");
 const TimeManagementShareDeliveryModel = require("./timeManagementShareDeliveryModel");
 const UserModel = require("../users/userModel");
 const CompanyModel = require("../companies/companyModel");
+const InvitationModel = require("../invitations/invitationModel");
 const NotificationHelper = require("../notifications/notificationHelper");
 const {
   NotificationType,
@@ -53,6 +54,59 @@ class TimeManagementSharingService {
     }
 
     return company;
+  }
+
+  /**
+   * Whether this user may offer *their own* tracked time to a company.
+   *
+   * Reading company-wide data is a managing-role operation
+   * ([assertCompanyAccess]); sharing your own time with the company you belong
+   * to is not, otherwise an ordinary employee could never report to their
+   * employer. Membership follows the existing model: a user holds the
+   * registration code of an invitation issued for that company.
+   *
+   * Returns the company, and the id of the member who has to approve.
+   */
+  async assertCompanyShareTarget(userId, companyId) {
+    const company = await CompanyModel.findOne({
+      $or: [
+        mongoose.Types.ObjectId.isValid(companyId) ? { _id: companyId } : null,
+        { id: companyId },
+      ].filter(Boolean),
+    });
+
+    if (!company) {
+      throw new ApiError("Company not found", 404);
+    }
+
+    const administratorId = company.createdBy.toString();
+    if (administratorId === userId.toString()) {
+      return { company, administratorId };
+    }
+
+    const user = await UserModel.findById(userId);
+    if (!user) {
+      throw new ApiError("User not found", 404);
+    }
+
+    // Member of the company through the invitation they registered with.
+    if (user.regiCode) {
+      const invitation = await InvitationModel.findOne({
+        regiCode: user.regiCode,
+        companyId: company._id.toString(),
+      });
+      if (invitation) return { company, administratorId };
+    }
+
+    // Managing roles keep the access they already had.
+    if (["master", "admin", "manager"].includes(user.role)) {
+      return { company, administratorId };
+    }
+
+    throw new ApiError(
+      "You are not a member of this company, so you cannot share your time with it",
+      403
+    );
   }
 
   /** True when this user may read the share and the usage behind it. */
@@ -137,12 +191,20 @@ class TimeManagementSharingService {
     if (resolvedMode === "automatic" && !normalizedSchedule) {
       throw new ApiError("schedule is required for automatic sharing", 400);
     }
+    // A personal configuration is a saved filter, not a sharing relationship:
+    // there is nobody to deliver to, so automatic sharing is not offered.
+    if (shareScope === "personal" && resolvedMode === "automatic") {
+      throw new ApiError(
+        "Automatic sharing is not available for a personal configuration",
+        400
+      );
+    }
 
-    // Resolve the recipient per scope. Personal and company configurations
-    // belong to the owner, so the owner is also the recipient of the data and
-    // nothing is ever delivered to another user.
+    // Resolve who approves and receives, per scope.
     let resolvedRecipientId = senderUserId;
     let resolvedCompanyId = null;
+    // Personal configurations belong to their owner and need no approval.
+    let needsApproval = false;
 
     if (shareScope === "person") {
       if (!recipientUserId) {
@@ -156,12 +218,34 @@ class TimeManagementSharingService {
         throw new ApiError("Recipient not found", 404);
       }
       resolvedRecipientId = recipientUserId;
+      needsApproval = true;
     } else if (shareScope === "company") {
       if (!companyId) {
         throw new ApiError("companyId is required for company sharing", 400);
       }
-      const company = await this.assertCompanyAccess(senderUserId, companyId);
+      const { company, administratorId } = await this.assertCompanyShareTarget(
+        senderUserId,
+        companyId
+      );
       resolvedCompanyId = company._id.toString();
+
+      // The company's administrator (its creator) is the authorized
+      // representative: a member sharing with the company needs their
+      // approval, and the administrator sharing with their own company does
+      // not need to approve themselves.
+      if (administratorId === senderUserId.toString()) {
+        resolvedRecipientId = senderUserId;
+      } else {
+        const administrator = await UserModel.findById(administratorId);
+        if (!administrator) {
+          throw new ApiError(
+            "The company has no reachable administrator to approve this request",
+            409
+          );
+        }
+        resolvedRecipientId = administratorId;
+        needsApproval = true;
+      }
     }
 
     // Duplicate handling. A person-scope request that is already pending or
@@ -175,7 +259,7 @@ class TimeManagementSharingService {
     });
 
     if (existingActive) {
-      if (shareScope === "person") {
+      if (needsApproval) {
         throw new ApiError(
           existingActive.status === "pending"
             ? "A pending share for this filter already exists with this user"
@@ -213,15 +297,15 @@ class TimeManagementSharingService {
       scops: scops || {},
       metadata: metadata || {},
       invitationLink: invitationLink || null,
-      // Only person-to-person sharing needs the recipient's approval.
-      status: shareScope === "person" ? "pending" : "accepted",
-      acceptedAt: shareScope === "person" ? null : new Date(),
+      // Data only flows once the authorized party has approved.
+      status: needsApproval ? "pending" : "accepted",
+      acceptedAt: needsApproval ? null : new Date(),
     });
 
     this.applyScheduleState(share);
     await share.save();
 
-    if (shareScope === "person") {
+    if (needsApproval) {
       await this.notifyShareRequest(share);
     }
 
@@ -411,29 +495,108 @@ class TimeManagementSharingService {
     if (share.shareMode === "automatic" && !share.schedule) {
       throw new ApiError("schedule is required for automatic sharing", 400);
     }
+    if (share.shareScope === "personal" && share.shareMode === "automatic") {
+      throw new ApiError(
+        "Automatic sharing is not available for a personal configuration",
+        400
+      );
+    }
 
     this.applyScheduleState(share);
     await share.save();
     return share;
   }
 
-  async getAllMyShares(userId, queryParams) {
-    const { page = 1, limit = 20, status } = queryParams;
-    const skip = (page - 1) * limit;
-
-    const query = {
-      $or: [{ senderUserId: userId }, { recipientUserId: userId }],
-    };
-
-    if (status) {
-      query.status = status;
+  /**
+   * Builds the "which configurations may this user see" part of a query.
+   *
+   * personal  — the user's own saved filters, shared with nobody
+   * outgoing  — configurations the user shared with a person or a company
+   * incoming  — configurations somebody else shared with the user
+   * (omitted)  — everything the user is a party to
+   */
+  directionQuery(userId, direction) {
+    switch (direction) {
+      case "personal":
+        return { senderUserId: userId, shareScope: "personal" };
+      case "outgoing":
+        return { senderUserId: userId, shareScope: { $ne: "personal" } };
+      case "incoming":
+        return { recipientUserId: userId, senderUserId: { $ne: userId } };
+      default:
+        return {
+          $or: [{ senderUserId: userId }, { recipientUserId: userId }],
+        };
     }
+  }
+
+  /**
+   * Free-text search over the configuration name and the counterpart's name or
+   * email. The user directory is queried first, then matching ids are folded
+   * into the share query, which keeps this to two indexed reads.
+   */
+  async searchQuery(search) {
+    const escaped = search.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const pattern = new RegExp(escaped, "i");
+
+    const users = await UserModel.find({
+      $or: [{ fullName: pattern }, { email: pattern }],
+    })
+      .select("_id")
+      .limit(50)
+      .lean();
+
+    const userIds = users.map((u) => u._id);
+    const companies = await CompanyModel.find({ title: pattern })
+      .select("_id")
+      .limit(50)
+      .lean();
+
+    return {
+      $or: [
+        { filterName: pattern },
+        ...(userIds.length > 0
+          ? [{ senderUserId: { $in: userIds } }, { recipientUserId: { $in: userIds } }]
+          : []),
+        ...(companies.length > 0
+          ? [{ companyId: { $in: companies.map((c) => c._id.toString()) } }]
+          : []),
+      ],
+    };
+  }
+
+  async getAllMyShares(userId, queryParams) {
+    const {
+      page = 1,
+      limit = 20,
+      status,
+      direction,
+      shareScope,
+      shareMode,
+      search,
+    } = queryParams;
+    const parsedPage = Math.max(1, parseInt(page, 10) || 1);
+    const parsedLimit = Math.min(100, Math.max(1, parseInt(limit, 10) || 20));
+    const skip = (parsedPage - 1) * parsedLimit;
+
+    const conditions = [this.directionQuery(userId, direction)];
+
+    if (status) conditions.push({ status });
+    if (shareScope) conditions.push({ shareScope });
+    if (shareMode) conditions.push({ shareMode });
+    if (search && search.trim()) {
+      conditions.push(await this.searchQuery(search.trim()));
+    }
+
+    // $and keeps each filter intact; merging $or branches into one object
+    // would silently widen the visibility rules.
+    const query = conditions.length === 1 ? conditions[0] : { $and: conditions };
 
     const [shares, total] = await Promise.all([
       TimeManagementShareModel.find(query)
         .sort({ createdAt: -1 })
         .skip(skip)
-        .limit(parseInt(limit, 10))
+        .limit(parsedLimit)
         .populate("senderUserId", "fullName email photo role")
         .populate("recipientUserId", "fullName email photo role")
         .exec(),
@@ -444,8 +607,9 @@ class TimeManagementSharingService {
       shares,
       pagination: {
         total,
-        page: parseInt(page, 10),
-        pages: Math.ceil(total / limit),
+        page: parsedPage,
+        limit: parsedLimit,
+        pages: Math.ceil(total / parsedLimit),
       },
     };
   }

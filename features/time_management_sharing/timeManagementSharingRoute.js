@@ -15,7 +15,21 @@ router.post(
   validatorMiddleware,
   controller.createShare
 );
-router.get("/", controller.getAllMyShares);
+router.get(
+  "/",
+  validator.validateListQuery,
+  validatorMiddleware,
+  controller.getAllMyShares
+);
+
+// Report links (revocation is keyed by link id, so it is declared with the
+// other fixed-prefix routes, before the parameterized :shareId ones)
+router.patch(
+  "/links/:linkId/revoke",
+  validator.validateLinkId,
+  validatorMiddleware,
+  controller.revokeReportLink
+);
 
 // 2. Specific Query & Filtering Routes (declared before parameterized :shareId routes)
 router.get("/reports", validator.validateReportQuery, validatorMiddleware, controller.getReport);
@@ -65,6 +79,20 @@ router.patch(
   validator.validateUpdateSchedule,
   validatorMiddleware,
   controller.updateShareSchedule
+);
+
+// Secure read-only report links for a configuration (owner only)
+router.post(
+  "/:shareId/links",
+  validator.validateCreateReportLink,
+  validatorMiddleware,
+  controller.createReportLink
+);
+router.get(
+  "/:shareId/links",
+  validator.validateShareId,
+  validatorMiddleware,
+  controller.getReportLinks
 );
 
 // Manual sharing: the owner delivers the saved configuration now

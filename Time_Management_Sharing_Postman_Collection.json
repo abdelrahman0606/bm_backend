@@ -770,6 +770,213 @@
         "description": "Delivery history of a configuration (owner, recipient, or an authorized member of the company it is bound to)."
       },
       "response": []
+    },
+    {
+      "name": "List Configurations (direction & search)",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/time-management-shares?direction=outgoing&status=pending&shareMode=automatic&search=report&page=1&limit=20",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "time-management-shares"
+          ],
+          "query": [
+            {
+              "key": "direction",
+              "value": "outgoing"
+            },
+            {
+              "key": "status",
+              "value": "pending"
+            },
+            {
+              "key": "shareMode",
+              "value": "automatic"
+            },
+            {
+              "key": "search",
+              "value": "report"
+            },
+            {
+              "key": "page",
+              "value": "1"
+            },
+            {
+              "key": "limit",
+              "value": "20"
+            }
+          ]
+        },
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{bearer_token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "description": "Share Configuration Management listing. `direction` is personal | outgoing | incoming; `search` matches the configuration name, the counterpart's name or email, and the company title. Sender and recipient come back populated with fullName, email and photo."
+      },
+      "response": []
+    },
+    {
+      "name": "Create Report Link",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/time-management-shares/{{shareId}}/links",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "time-management-shares",
+            "{{shareId}}",
+            "links"
+          ]
+        },
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{bearer_token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"dateFrom\": \"2026-10-20\",\n  \"dateTo\": \"2026-10-20\",\n  \"expiresInDays\": 7,\n  \"includeWindows\": false\n}"
+        },
+        "description": "Owner only. Returns the link once, with its token in the URL; the backend stores only the token's SHA-256 hash. `includeWindows` off keeps window titles private."
+      },
+      "response": []
+    },
+    {
+      "name": "List Report Links",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/time-management-shares/{{shareId}}/links",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "time-management-shares",
+            "{{shareId}}",
+            "links"
+          ]
+        },
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{bearer_token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "description": "Owner only. Listed links never carry their token."
+      },
+      "response": []
+    },
+    {
+      "name": "Revoke Report Link",
+      "request": {
+        "method": "PATCH",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/time-management-shares/links/{{linkId}}/revoke",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "time-management-shares",
+            "links",
+            "{{linkId}}",
+            "revoke"
+          ]
+        },
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{bearer_token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "description": "Owner only. A revoked link stops serving the report immediately."
+      },
+      "response": []
+    },
+    {
+      "name": "Open Shared Report (public page)",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/public/time-reports/{{reportToken}}",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "public",
+            "time-reports",
+            "{{reportToken}}"
+          ]
+        },
+        "description": "No bearer token: the link is the credential. Unknown, revoked and expired tokens all answer 404 with the same page, so links cannot be probed."
+      },
+      "response": []
+    },
+    {
+      "name": "Shared Report Data (public JSON)",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/public/time-reports/{{reportToken}}/data",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "public",
+            "time-reports",
+            "{{reportToken}}",
+            "data"
+          ]
+        },
+        "description": "Same report as JSON, for a client that renders it itself."
+      },
+      "response": []
     }
   ],
   "variable": [
@@ -800,6 +1007,14 @@
     {
       "key": "companyId",
       "value": "60d5ecb8b392d7001f3e69f3"
+    },
+    {
+      "key": "linkId",
+      "value": "60d5ecb8b392d7001f3e69f4"
+    },
+    {
+      "key": "reportToken",
+      "value": "PASTE_TOKEN_FROM_CREATE_REPORT_LINK"
     }
   ]
 }

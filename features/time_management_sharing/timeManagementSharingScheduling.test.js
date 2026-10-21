@@ -181,7 +181,8 @@ describe("Share Time scopes, approval and scheduling", () => {
           filterName: "Denied",
           filterDefinition: { schemaVersion: 1 },
         }),
-      { message: "Unauthorized to access company time sharing" }
+      // Sharing your own time with a company requires belonging to it.
+      { message: /not a member of this company/ }
     );
 
     await assert.rejects(
