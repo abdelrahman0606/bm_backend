@@ -1,4 +1,7 @@
 const service = require("./timeManagementSharingService");
+const {
+  isLocalMongoReady,
+} = require("../../infrastructure/database/database.manager");
 
 /**
  * Backend worker that delivers automatic Share Time configurations.
@@ -21,6 +24,15 @@ async function tick({ limit }) {
   // Never let two ticks overlap: a slow tick would otherwise claim the same
   // occurrences twice in a row and waste work on duplicate-key retries.
   if (running) return [];
+  // Every collection this worker touches lives in local MongoDB. With that
+  // connection down there is nothing to claim, and nothing to retry against
+  // Atlas: the next tick picks the occurrences up once it is back.
+  if (!isLocalMongoReady()) {
+    console.error(
+      "[time-management-scheduler] skipped: local MongoDB is not ready"
+    );
+    return [];
+  }
   running = true;
   try {
     const processed = await service.runDueShares({ now: new Date(), limit });

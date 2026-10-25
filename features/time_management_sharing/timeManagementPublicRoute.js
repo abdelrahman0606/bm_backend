@@ -2,6 +2,7 @@ const express = require("express");
 const router = express.Router();
 const linkService = require("./timeManagementShareLinkService");
 const reportPage = require("./timeManagementReportPage");
+const { requireLocalMongoReady } = require("./timeManagementDatabaseGuard");
 
 /**
  * Public, unauthenticated access to a shared time report.
@@ -11,6 +12,10 @@ const reportPage = require("./timeManagementReportPage");
  * answered with the same "not available" response so links cannot be probed.
  * No other route of this feature is reachable without a bearer token.
  */
+
+// Report links and usage live in local MongoDB, so a token can only be
+// resolved while that connection is ready.
+router.use(requireLocalMongoReady);
 
 // Rendered page — this is what a recipient opens from a chat message.
 router.get("/:token", async (req, res) => {

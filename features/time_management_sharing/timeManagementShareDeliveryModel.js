@@ -1,4 +1,7 @@
 const mongoose = require("mongoose");
+const {
+  localMongoConnection,
+} = require("../../infrastructure/database/database.manager");
 
 /**
  * One delivery of a Share Time configuration to its recipient.
@@ -110,7 +113,19 @@ timeManagementShareDeliverySchema.index(
 timeManagementShareDeliverySchema.index({ recipientUserId: 1, createdAt: -1 });
 timeManagementShareDeliverySchema.index({ senderUserId: 1, createdAt: -1 });
 
-module.exports = mongoose.model(
-  "TimeManagementShareDelivery",
-  timeManagementShareDeliverySchema
-);
+/** Registered on local MongoDB — see `timeManagementShareModel.js`. */
+function createTimeManagementShareDeliveryModel(
+  connection = localMongoConnection
+) {
+  return (
+    connection.models.TimeManagementShareDelivery ||
+    connection.model(
+      "TimeManagementShareDelivery",
+      timeManagementShareDeliverySchema
+    )
+  );
+}
+
+module.exports = createTimeManagementShareDeliveryModel();
+module.exports.createTimeManagementShareDeliveryModel =
+  createTimeManagementShareDeliveryModel;

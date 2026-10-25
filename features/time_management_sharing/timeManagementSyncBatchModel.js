@@ -1,4 +1,7 @@
 const mongoose = require("mongoose");
+const {
+  localMongoConnection,
+} = require("../../infrastructure/database/database.manager");
 
 const timeManagementSyncBatchSchema = new mongoose.Schema(
   {
@@ -84,7 +87,14 @@ const timeManagementSyncBatchSchema = new mongoose.Schema(
 timeManagementSyncBatchSchema.index({ shareId: 1, batchId: 1 });
 timeManagementSyncBatchSchema.index({ senderUserId: 1, createdAt: -1 });
 
-module.exports = mongoose.model(
-  "TimeManagementSyncBatch",
-  timeManagementSyncBatchSchema
-);
+/** Registered on local MongoDB — see `timeManagementShareModel.js`. */
+function createTimeManagementSyncBatchModel(connection = localMongoConnection) {
+  return (
+    connection.models.TimeManagementSyncBatch ||
+    connection.model("TimeManagementSyncBatch", timeManagementSyncBatchSchema)
+  );
+}
+
+module.exports = createTimeManagementSyncBatchModel();
+module.exports.createTimeManagementSyncBatchModel =
+  createTimeManagementSyncBatchModel;

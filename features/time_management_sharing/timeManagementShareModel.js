@@ -1,4 +1,7 @@
 const mongoose = require("mongoose");
+const {
+  localMongoConnection,
+} = require("../../infrastructure/database/database.manager");
 
 const scheduleSchema = new mongoose.Schema(
   {
@@ -201,4 +204,20 @@ timeManagementShareSchema.index({ companyId: 1, status: 1 });
 // Drives the scheduler's "what is due now" query.
 timeManagementShareSchema.index({ shareMode: 1, status: 1, nextRunAt: 1 });
 
-module.exports = mongoose.model("TimeManagementShare", timeManagementShareSchema);
+/**
+ * Registers the model on the local MongoDB connection.
+ *
+ * Time Management data lives in local MongoDB, never in Atlas, so the model is
+ * bound to `localMongoConnection` instead of `mongoose.model(...)` — which
+ * would bind it to Mongoose's default (Atlas) connection. The `models` guard
+ * keeps a repeated require or a module reload from recompiling the model.
+ */
+function createTimeManagementShareModel(connection = localMongoConnection) {
+  return (
+    connection.models.TimeManagementShare ||
+    connection.model("TimeManagementShare", timeManagementShareSchema)
+  );
+}
+
+module.exports = createTimeManagementShareModel();
+module.exports.createTimeManagementShareModel = createTimeManagementShareModel;

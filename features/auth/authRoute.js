@@ -63,8 +63,20 @@ router.post(
   validatorMiddleware,
   async (req, res, next) => {
     try {
-      const { idToken, platform, authType, invitationCode } = req.body;
-      const result = await authService.googleAuth(idToken, platform, authType, invitationCode);
+      const token =
+        req.body.idToken ||
+        req.body.id_token ||
+        req.body.access_token ||
+        req.body.accessToken ||
+        req.body.token;
+      const platform = req.body.platform || "web";
+      const { authType, invitationCode } = req.body;
+      const result = await authService.googleAuth(
+        token,
+        platform,
+        authType,
+        invitationCode,
+      );
       res.status(200).json({
         success: true,
         data: result,

@@ -1,4 +1,7 @@
 const mongoose = require("mongoose");
+const {
+  localMongoConnection,
+} = require("../../infrastructure/database/database.manager");
 
 /**
  * A bearer link that exposes one time-usage report read-only.
@@ -100,7 +103,14 @@ timeManagementShareLinkSchema.virtual("isActive").get(function isActive() {
   return !this.revokedAt && this.expiresAt > new Date();
 });
 
-module.exports = mongoose.model(
-  "TimeManagementShareLink",
-  timeManagementShareLinkSchema
-);
+/** Registered on local MongoDB — see `timeManagementShareModel.js`. */
+function createTimeManagementShareLinkModel(connection = localMongoConnection) {
+  return (
+    connection.models.TimeManagementShareLink ||
+    connection.model("TimeManagementShareLink", timeManagementShareLinkSchema)
+  );
+}
+
+module.exports = createTimeManagementShareLinkModel();
+module.exports.createTimeManagementShareLinkModel =
+  createTimeManagementShareLinkModel;

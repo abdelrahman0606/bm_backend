@@ -4,9 +4,13 @@ const controller = require("./timeManagementSharingController");
 const validator = require("./timeManagementSharingValidator");
 const { validatorMiddleware } = require("../../middlewares/validatorMiddleware");
 const { verifyAuthToken } = require("../../middlewares/authMiddleware");
+const { requireLocalMongoReady } = require("./timeManagementDatabaseGuard");
 
 // All time management sharing routes require authentication
 router.use(verifyAuthToken);
+// ...and a ready local MongoDB connection, which is where this feature's data
+// lives. Never served from Atlas.
+router.use(requireLocalMongoReady);
 
 // 1. Root Collection Routes
 router.post(

@@ -1,4 +1,7 @@
 const mongoose = require("mongoose");
+const {
+  localMongoConnection,
+} = require("../../infrastructure/database/database.manager");
 const TimeManagementShareModel = require("./timeManagementShareModel");
 const TimeManagementUsageModel = require("./timeManagementUsageModel");
 const TimeManagementSyncBatchModel = require("./timeManagementSyncBatchModel");
@@ -19,11 +22,53 @@ const {
 } = require("./timeManagementScheduleUtils");
 const ApiError = require("../../utils/apiError");
 
+/**
+ * Populate options for the user references on Time Management documents.
+ *
+ * The documents live in local MongoDB while the user directory lives in Atlas,
+ * which MongoDB cannot join across deployments. Passing the Atlas-bound
+ * `UserModel` explicitly makes Mongoose resolve the reference with a second
+ * query on the Atlas connection — the only supported way across connections,
+ * and the reason `ref: "User"` alone is never enough here.
+ */
+const populateSender = {
+  path: "senderUserId",
+  select: "fullName email photo role",
+  model: UserModel,
+};
+const populateRecipient = {
+  path: "recipientUserId",
+  select: "fullName email photo role",
+  model: UserModel,
+};
+
 const SHARE_SCOPES = ["personal", "company", "person"];
 const SHARE_MODES = ["manual", "automatic"];
 
 /** Statuses that must never authorize a delivery. */
 const CLOSED_STATUSES = ["rejected", "revoked", "disconnected", "cancelled"];
+
+/**
+ * Whether the connection can run a transaction, probed once and cached.
+ *
+ * Transactions need a replica set or a mongos. The local MongoDB deployment is
+ * documented as a single-node replica set for exactly this reason, but a
+ * standalone mongod must degrade to the non-transactional path in `syncUsage`
+ * instead of failing the sync with "Transaction numbers are only allowed on a
+ * replica set member or mongos" — which is what that fallback exists for.
+ */
+let transactionSupport = null;
+
+const supportsTransactions = async (connection) => {
+  if (transactionSupport !== null) return transactionSupport;
+  try {
+    const info = await connection.db.admin().command({ hello: 1 });
+    transactionSupport = Boolean(info.setName) || info.msg === "isdbgrid";
+  } catch {
+    transactionSupport = false;
+  }
+  return transactionSupport;
+};
 
 class TimeManagementSharingService {
   // -------------------------------------------------------------------------
@@ -597,8 +642,8 @@ class TimeManagementSharingService {
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(parsedLimit)
-        .populate("senderUserId", "fullName email photo role")
-        .populate("recipientUserId", "fullName email photo role")
+        .populate(populateSender)
+        .populate(populateRecipient)
         .exec(),
       TimeManagementShareModel.countDocuments(query),
     ]);
@@ -626,7 +671,7 @@ class TimeManagementSharingService {
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(parseInt(limit, 10))
-        .populate("senderUserId", "fullName email photo role")
+        .populate(populateSender)
         .exec(),
       TimeManagementShareModel.countDocuments(query),
     ]);
@@ -653,7 +698,7 @@ class TimeManagementSharingService {
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(parseInt(limit, 10))
-        .populate("recipientUserId", "fullName email photo role")
+        .populate(populateRecipient)
         .exec(),
       TimeManagementShareModel.countDocuments(query),
     ]);
@@ -678,8 +723,8 @@ class TimeManagementSharingService {
 
   async getSingleShare(userId, shareId) {
     const share = await TimeManagementShareModel.findById(shareId)
-      .populate("senderUserId", "fullName email photo role")
-      .populate("recipientUserId", "fullName email photo role");
+      .populate(populateSender)
+      .populate(populateRecipient);
 
     if (!share) {
       throw new ApiError("Share not found", 404);
@@ -865,9 +910,14 @@ class TimeManagementSharingService {
     let useTransaction = false;
 
     try {
-      session = await mongoose.startSession();
-      session.startTransaction();
-      useTransaction = true;
+      // The session has to come from the connection that owns these
+      // collections: a session started on the default (Atlas) connection
+      // cannot span a transaction over the local MongoDB documents below.
+      if (await supportsTransactions(localMongoConnection)) {
+        session = await localMongoConnection.startSession();
+        session.startTransaction();
+        useTransaction = true;
+      }
     } catch {
       session = null;
       useTransaction = false;
@@ -1444,8 +1494,8 @@ class TimeManagementSharingService {
     }
 
     const usageRecords = await TimeManagementUsageModel.find(query)
-      .populate("senderUserId", "fullName email photo role")
-      .populate("recipientUserId", "fullName email photo role")
+      .populate(populateSender)
+      .populate(populateRecipient)
       .sort({ date: 1 })
       .lean();
 
@@ -1572,3 +1622,6 @@ class TimeManagementSharingService {
 }
 
 module.exports = new TimeManagementSharingService();
+// Exposed so a test can assert the user references are resolved through the
+// Atlas-bound model, which is what makes the cross-database populate work.
+module.exports.populateOptionsForTest = { populateSender, populateRecipient };

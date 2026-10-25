@@ -1,4 +1,7 @@
 const mongoose = require("mongoose");
+const {
+  localMongoConnection,
+} = require("../../infrastructure/database/database.manager");
 
 const windowUsageSchema = new mongoose.Schema(
   {
@@ -114,4 +117,13 @@ timeManagementUsageSchema.index({ senderUserId: 1, date: 1 });
 timeManagementUsageSchema.index({ shareId: 1, date: 1 });
 timeManagementUsageSchema.index({ filterId: 1 });
 
-module.exports = mongoose.model("TimeManagementUsage", timeManagementUsageSchema);
+/** Registered on local MongoDB — see `timeManagementShareModel.js`. */
+function createTimeManagementUsageModel(connection = localMongoConnection) {
+  return (
+    connection.models.TimeManagementUsage ||
+    connection.model("TimeManagementUsage", timeManagementUsageSchema)
+  );
+}
+
+module.exports = createTimeManagementUsageModel();
+module.exports.createTimeManagementUsageModel = createTimeManagementUsageModel;
