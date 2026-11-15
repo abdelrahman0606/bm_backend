@@ -3,6 +3,41 @@ const Attendance = require("./attendanceModel");
 const AttendanceQrSession = require("./attendanceQrSessionModel");
 const EmployeeFaceProfile = require("./employeeFaceProfileModel");
 const ApiError = require("../../utils/apiError");
+const { resolveCompanyForUser } = require("../../core/access/companyResolver");
+const faceRegistrationService = require("./faceRegistrationService");
+
+/**
+ * Refuses a face-verified entry unless the person's registration is approved.
+ *
+ * The message says which state they are in, because "register your face",
+ * "your request is still being reviewed" and "your request was rejected" call
+ * for three different things from the user, and one generic refusal would
+ * leave them guessing.
+ */
+const _assertFaceRegistrationApproved = async (userId, companyId) => {
+  const { allowed, status } = await faceRegistrationService.faceVerificationAllowed(
+    userId,
+    companyId
+  );
+  if (allowed) return;
+
+  if (status === "notRegistered") {
+    throw new ApiError(
+      "Your face is not registered yet. Submit a face registration request first.",
+      403
+    );
+  }
+  if (status === "pending") {
+    throw new ApiError(
+      "Your face registration is still awaiting approval.",
+      403
+    );
+  }
+  throw new ApiError(
+    "Your face registration was rejected. Submit a new request to try again.",
+    403
+  );
+};
 
 const buildAttendanceResponse = (attendance) => {
   const userIdStr =
@@ -72,7 +107,12 @@ exports.generateQrSession = async () => {
 };
 
 exports.checkIn = async (data, userId) => {
-  const { type, qrToken, faceEmbedding, latitude, longitude, address, deviceId, companyId } = data;
+  const { type, qrToken, faceEmbedding, latitude, longitude, address, deviceId } = data;
+
+  // Resolved from the user's own relationships. The companyId in the body is
+  // treated as a preference and checked against them, never as proof: it
+  // decides which company's attendance record this becomes.
+  const companyId = await resolveCompanyForUser(userId, data.companyId);
 
   // Check if user already attended today
   const startOfDay = new Date();
@@ -91,7 +131,7 @@ exports.checkIn = async (data, userId) => {
 
   const attendanceData = {
     userId,
-    companyId: companyId || null,
+    companyId,
     type,
     deviceId,
     timestamp: new Date(),
@@ -126,6 +166,10 @@ exports.checkIn = async (data, userId) => {
     attendanceData.verificationMethod = "qr";
     
   } else if (type === "online") {
+    // An online entry is face-verified, so it is only open to somebody whose
+    // registration an approver has accepted.
+    await _assertFaceRegistrationApproved(userId, companyId);
+
     // Face verification logic
     const profile = await EmployeeFaceProfile.findOne({ userId });
     if (!profile) {
@@ -220,7 +264,14 @@ exports.getAttendances = async (userId, userRole, query) => {
 };
 
 exports.registerFaceProfile = async (data, userId) => {
-  const { similarity, photo, companyId } = data;
+  const { similarity, photo } = data;
+
+  const companyId = await resolveCompanyForUser(userId, data.companyId);
+
+  // This is the face-verified attendance write, so it carries the same gate
+  // as an online check-in. Without it, the approval workflow could be walked
+  // straight around by calling this endpoint instead.
+  await _assertFaceRegistrationApproved(userId, companyId);
 
   const simVal = similarity !== undefined && similarity !== null ? Number(similarity) : null;
 
@@ -241,13 +292,13 @@ exports.registerFaceProfile = async (data, userId) => {
   if (attendance) {
     if (photo !== undefined) attendance.photo = photo;
     attendance.similarity = simVal;
-    if (companyId !== undefined) attendance.companyId = companyId;
+    attendance.companyId = companyId;
     attendance.verificationMethod = "face";
     await attendance.save();
   } else {
     attendance = await Attendance.create({
       userId,
-      companyId: companyId || null,
+      companyId,
       type: "online",
       verified: true,
       verificationMethod: "face",
@@ -261,7 +312,12 @@ exports.registerFaceProfile = async (data, userId) => {
 };
 
 exports.registerLocation = async (data, userId) => {
-  const { latitude, longitude, address, companyId } = data;
+  const { latitude, longitude, address } = data;
+
+  // A location entry does not involve a face, so it carries no registration
+  // gate — but the company it is filed under is still resolved here rather
+  // than taken from the body.
+  const companyId = await resolveCompanyForUser(userId, data.companyId);
 
   const startOfDay = new Date();
   startOfDay.setHours(0, 0, 0, 0);
@@ -277,13 +333,13 @@ exports.registerLocation = async (data, userId) => {
     if (latitude !== undefined) attendance.latitude = latitude;
     if (longitude !== undefined) attendance.longitude = longitude;
     if (address !== undefined) attendance.address = address;
-    if (companyId !== undefined) attendance.companyId = companyId;
+    attendance.companyId = companyId;
     attendance.verificationMethod = "location";
     await attendance.save();
   } else {
     attendance = await Attendance.create({
       userId,
-      companyId: companyId || null,
+      companyId,
       type: "online",
       verified: true,
       verificationMethod: "location",

@@ -3,7 +3,17 @@ const { body } = require("express-validator");
 const validateCreateInvitation = [
   body("companyId").notEmpty().withMessage("companyId is required").isString(),
   body("type").notEmpty().withMessage("type is required").isString(),
-  body("status").optional().isString(),
+  body("status")
+    .optional()
+    .isIn([
+      "pending",
+      "accepted",
+      "rejected",
+      "expired",
+      "cancelled",
+      "revoked",
+    ])
+    .withMessage("Invalid invitation status"),
   body("role").notEmpty().withMessage("role is required").isString(),
   body("employeeType")
     .notEmpty()
@@ -28,7 +38,17 @@ const validateCreateInvitation = [
 const validateUpdateInvitation = [
   body("companyId").optional().isString(),
   body("type").optional().isString(),
-  body("status").optional().isString(),
+  body("status")
+    .optional()
+    .isIn([
+      "pending",
+      "accepted",
+      "rejected",
+      "expired",
+      "cancelled",
+      "revoked",
+    ])
+    .withMessage("Invalid invitation status"),
   body("role").optional().isString(),
   body("employeeType")
     .optional()

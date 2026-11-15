@@ -14,6 +14,14 @@ const invitationSchema = new mongoose.Schema(
       type: String,
       required: true,
       default: "pending",
+      enum: [
+        "pending",
+        "accepted",
+        "rejected",
+        "expired",
+        "cancelled",
+        "revoked",
+      ],
     },
     regiCode: {
       type: String,

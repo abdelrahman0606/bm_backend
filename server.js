@@ -29,7 +29,10 @@ const { authenticateSocket } = require("./infrastructure/realtime/socketAuth");
 const SocketGateway = require("./infrastructure/realtime/socketGateway");
 
 const morgan = require("morgan");
-const dbConnection = require("./config/database");
+const {
+  initializeDatabases,
+  closeDatabases,
+} = require("./infrastructure/database/database.manager");
 // ensure related models are loaded
 // Canvas Models
 require("./features/canvas/models/WorkspaceModel");
@@ -40,6 +43,17 @@ require("./features/canvas/models/CanvasConnectionModel");
 require("./features/canvas/models/CanvasCommentModel");
 require("./features/canvas/models/CanvasActivityModel");
 require("./features/canvas/models/CanvasViewModel");
+// Time Management Sharing Models
+require("./features/time_management_sharing/timeManagementShareModel");
+require("./features/time_management_sharing/timeManagementUsageModel");
+require("./features/time_management_sharing/timeManagementSyncBatchModel");
+require("./features/time_management_sharing/timeManagementShareDeliveryModel");
+require("./features/time_management_sharing/timeManagementShareLinkModel");
+require("./features/time_management_sharing/timeManagementDeviceUsageModel");
+require("./features/time_management_sharing/timeManagementDeviceSyncBatchModel");
+const {
+  prepareTimeManagementCollections,
+} = require("./features/time_management_sharing/timeManagementCollections");
 const userRoute = require("./features/users/userRoute");
 const authRoute = require("./features/auth/authRoute");
 const tasksManagementRoute = require("./features/tasks_management/tasksManagementRoute");
@@ -53,14 +67,15 @@ const firebaseService = require("./features/notifications/firebaseService");
 const whatsappRoute = require("./features/whatsapp/whatsapp.routes");
 const attendanceRoute = require("./features/attendance/attendanceRoute");
 const myDayRoute = require("./features/my_day/myDayRoute");
+const timeManagementSharingRoute = require("./features/time_management_sharing/timeManagementSharingRoute");
+const timeManagementShareScheduler = require("./features/time_management_sharing/timeManagementShareScheduler");
+const timeManagementPublicRoute = require("./features/time_management_sharing/timeManagementPublicRoute");
+const timeManagementUsageRoute = require("./features/time_management_sharing/timeManagementDeviceUsageRoute");
 
 const ApiError = require("./utils/apiError");
 const globalError = require("./middlewares/errorMiddleware");
 
 
-
-//connect to database
-dbConnection();
 
 // Initialize Firebase Admin SDK
 firebaseService.initializeFirebase();
@@ -93,6 +108,12 @@ app.use("/api/v1/notifications", notificationRoute);
 app.use("/api/v1/whatsapp", whatsappRoute);
 app.use("/api/v1/attendance", attendanceRoute);
 app.use("/api/v1/my-day", myDayRoute);
+app.use("/api/v1/time-management-shares", timeManagementSharingRoute);
+// Device usage synchronization and cross-device aggregated reporting.
+app.use("/api/v1/time-management-usage", timeManagementUsageRoute);
+// Public, token-authorized read-only reports (no bearer token: the link IS
+// the credential, resolved server-side).
+app.use("/api/v1/public/time-reports", timeManagementPublicRoute);
 
 app.use((req, res, next) =>
   next(new ApiError(`Can't find this route: ${req.originalUrl}`, 400)),
@@ -125,13 +146,66 @@ io.on("connection", (socket) => {
 const socketGateway = new SocketGateway(io, socketManager);
 global.socketGateway = socketGateway;
 
-const server = httpServer.listen(PORT, () => {
-  console.log(`Server is running on
+let server = null;
+
+// Databases first, in a fixed order, then serve: no request is handled and no
+// scheduled delivery runs before the connections they depend on are opened.
+// Atlas is fatal; an unavailable local MongoDB leaves the rest of the API
+// serving normally while Time Management answers 503 (see database.manager).
+const start = async () => {
+  await initializeDatabases();
+
+  // Create the Time Management collections and indexes before the first
+  // request, so a transactional sync never has to create one (MongoDB cannot,
+  // inside a transaction). Also re-runs if local MongoDB connects later.
+  prepareTimeManagementCollections();
+
+  server = httpServer.listen(PORT, () => {
+    console.log(`Server is running on
      http://localhost:${PORT}`);
+  });
+
+  // Deliver automatic Share Time configurations on their saved schedule.
+  timeManagementShareScheduler.start();
+};
+
+start().catch((err) => {
+  console.error(`Startup aborted: ${err.message}`);
+  process.exit(1);
 });
+
+// ── Graceful shutdown ──────────────────────────────────────────────────────
+// Stop the scheduler, stop accepting requests, then close both database
+// connections, so neither is left with work in flight.
+let shuttingDown = false;
+
+const shutdown = async (signal) => {
+  if (shuttingDown) return;
+  shuttingDown = true;
+  console.log(`${signal} received, shutting down......`);
+
+  timeManagementShareScheduler.stop();
+
+  if (server) {
+    await new Promise((resolve) => {
+      server.close(resolve);
+    });
+  }
+
+  await closeDatabases();
+  process.exit(0);
+};
+
+["SIGINT", "SIGTERM"].forEach((signal) => {
+  process.on(signal, () => {
+    shutdown(signal);
+  });
+});
+
 // Handle unhandled promise rejections outside of express routes
 process.on("un", (err) => {
   console.log(`Unhandled Rejection: ${err.name} - ${err.message}`);
+  if (!server) process.exit(1);
   server.close(() => {
     console.log(
       "Shutting down server...... due to unhandled promise rejection",

@@ -13,3 +13,6 @@ logs/
 # OS
 .DS_Store
 Thumbs.db
+
+# Secrets — never commit (deploy credentials live in GitHub Actions secrets)
+serverconfig.env

@@ -1,16 +1,22 @@
-const mongoose = require("mongoose");
+const {
+  connectAtlas,
+} = require("../infrastructure/database/atlas/atlas.connection");
 
-const dbConnection = () => {
-  mongoose
-    .connect(process.env.MONGODB_URI)
-    .then((conn) => {
-      console.log(
-        `Connected to the database successfully ${conn.connection.host}`,
-      );
-    })
-    .catch((err) => {
-      console.error("Database connection error:", err);
-      process.exit(1);
-    });
+/**
+ * Opens the MongoDB Atlas connection only.
+ *
+ * Kept for the standalone scripts that already call it (for example
+ * `migrateTasksToIssues.js`), which have no reason to open the local MongoDB
+ * connection. The server itself goes through
+ * `infrastructure/database/database.manager`, which owns both connections.
+ */
+const dbConnection = async () => {
+  try {
+    await connectAtlas();
+  } catch (err) {
+    console.error("Database connection error:", err.message);
+    process.exit(1);
+  }
 };
+
 module.exports = dbConnection;

@@ -1,6 +1,7 @@
 const jwt = require("jsonwebtoken");
 const bcryptjs = require("bcryptjs");
 const crypto = require("crypto");
+const axios = require("axios");
 const { OAuth2Client } = require("google-auth-library");
 const User = require("../users/userModel");
 const ApiError = require("../../utils/apiError");
@@ -33,6 +34,116 @@ const getGoogleClientId = (platform) => {
   }
   // Default to web for web and android platforms
   return process.env.GOOGLE_CLIENT_ID_WEB;
+};
+
+// Multi-strategy verification for Google Token (ID Token or Access Token)
+const verifyGoogleToken = async (tokenInput, platform = "web") => {
+  const clientIds = [
+    process.env.GOOGLE_CLIENT_ID_WEB,
+    process.env.GOOGLE_CLIENT_ID_DESKTOP,
+    process.env.GOOGLE_CLIENT_ID_ANDROID,
+    process.env.GOOGLE_CLIENT_ID_IOS,
+    process.env.GOOGLE_CLIENT_ID,
+  ].filter(Boolean);
+
+  // 1. Try verifyIdToken using OAuth2Client
+  try {
+    const oauthClient = getOAuthClient(platform);
+    const targetClientId = getGoogleClientId(platform);
+    const audienceList = clientIds.length > 0 ? clientIds : targetClientId;
+
+    let ticket;
+    try {
+      ticket = await oauthClient.verifyIdToken({
+        idToken: tokenInput,
+        audience: targetClientId,
+      });
+    } catch (e) {
+      if (audienceList && audienceList !== targetClientId) {
+        ticket = await oauthClient.verifyIdToken({
+          idToken: tokenInput,
+          audience: audienceList,
+        });
+      } else {
+        throw e;
+      }
+    }
+
+    const payload = ticket.getPayload();
+    if (payload && payload.email) {
+      return {
+        email: payload.email,
+        name: payload.name || payload.given_name || "",
+        picture: payload.picture || null,
+        email_verified:
+          payload.email_verified === true || payload.email_verified === "true",
+      };
+    }
+  } catch (error) {
+    // Continue to REST API fallbacks
+  }
+
+  // 2. Try Google TokenInfo API (for ID tokens)
+  try {
+    const response = await axios.get(
+      `https://oauth2.googleapis.com/tokeninfo?id_token=${tokenInput}`,
+    );
+    if (response.data && response.data.email) {
+      return {
+        email: response.data.email,
+        name: response.data.name || response.data.given_name || "",
+        picture: response.data.picture || null,
+        email_verified:
+          response.data.email_verified === "true" ||
+          response.data.email_verified === true,
+      };
+    }
+  } catch (error) {
+    // Continue to next fallback
+  }
+
+  // 3. Try Google UserInfo API (for Access tokens with Bearer header)
+  try {
+    const response = await axios.get(
+      "https://www.googleapis.com/oauth2/v3/userinfo",
+      {
+        headers: { Authorization: `Bearer ${tokenInput}` },
+      },
+    );
+    if (response.data && response.data.email) {
+      return {
+        email: response.data.email,
+        name: response.data.name || response.data.given_name || "",
+        picture: response.data.picture || null,
+        email_verified:
+          response.data.email_verified === true ||
+          response.data.email_verified === "true",
+      };
+    }
+  } catch (error) {
+    // Continue to legacy fallback
+  }
+
+  // 4. Try legacy Google UserInfo API (for access tokens as query param)
+  try {
+    const response = await axios.get(
+      `https://www.googleapis.com/oauth2/v1/userinfo?access_token=${tokenInput}`,
+    );
+    if (response.data && response.data.email) {
+      return {
+        email: response.data.email,
+        name: response.data.name || response.data.given_name || "",
+        picture: response.data.picture || null,
+        email_verified:
+          response.data.verified_email === true ||
+          response.data.email_verified === true,
+      };
+    }
+  } catch (error) {
+    // All fallbacks failed
+  }
+
+  throw new ApiError("Invalid Google token", 401);
 };
 
 // Generate JWT Token
@@ -165,18 +276,7 @@ exports.login = async (email, password) => {
 };
 
 exports.googleAuth = async (idToken, platform = "web", authType, invitationCode) => {
-  let payload;
-  try {
-    const oauthClient = getOAuthClient(platform);
-    const clientId = getGoogleClientId(platform);
-    const ticket = await oauthClient.verifyIdToken({
-      idToken,
-      audience: clientId,
-    });
-    payload = ticket.getPayload();
-  } catch (error) {
-    throw new ApiError("Invalid Google token", 401);
-  }
+  const payload = await verifyGoogleToken(idToken, platform);
 
   if (!payload || !payload.email) {
     throw new ApiError("Google account email is required", 400);

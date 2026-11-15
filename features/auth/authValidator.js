@@ -93,12 +93,21 @@ const validateRefreshToken = [
 ];
 
 const validateGoogleAuth = [
-  body("idToken").notEmpty().withMessage("Google idToken is required"),
-  body("platform")
-    .notEmpty()
-    .withMessage("Platform is required")
-    .isIn(["web", "android", "windows"])
-    .withMessage("Platform must be one of: web, android, windows"),
+  body().custom((value, { req }) => {
+    const token =
+      req.body.idToken ||
+      req.body.id_token ||
+      req.body.access_token ||
+      req.body.accessToken ||
+      req.body.token;
+    if (!token) {
+      throw new Error(
+        "Google token (idToken, id_token, access_token, or token) is required",
+      );
+    }
+    return true;
+  }),
+  body("platform").optional().isString(),
   body("authType").optional().isString(),
   body("invitationCode").optional().isString(),
 ];
