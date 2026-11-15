@@ -46,9 +46,11 @@ MONGODB_LOCAL_URI=mongodb://tm_app:<password>@127.0.0.1:27017/time_management_db
 
 Optional:
 
-| Variable                  | Default | Effect                                                                  |
-| ------------------------- | ------- | ----------------------------------------------------------------------- |
-| `MONGODB_LOCAL_REQUIRED`  | `false` | `true` makes an unavailable local MongoDB abort startup instead of leaving Time Management unavailable |
+| Variable                                 | Default | Effect                                                                                                  |
+| ---------------------------------------- | ------- | ------------------------------------------------------------------------------------------------------- |
+| `MONGODB_LOCAL_REQUIRED`                 | `false` | `true` makes an unavailable local MongoDB abort startup instead of leaving Time Management unavailable |
+| `MONGODB_ATLAS_STARTUP_ATTEMPTS`         | `5`     | How many times startup tries Atlas before aborting. `1` restores the old fail-on-first-error behaviour |
+| `MONGODB_ATLAS_STARTUP_RETRY_DELAY_MS`   | `1000`  | Delay before the second attempt; it doubles each time, capped at 8s                                     |
 
 Both URIs are validated at startup, before anything connects. A missing one
 fails with the variable's name — never with a value. No log line ever contains
@@ -57,19 +59,103 @@ credentials: every URI goes through `redactMongoUri` first.
 ## Startup, failure and shutdown behaviour
 
 1. `initializeDatabases()` validates both connection strings.
-2. Atlas connects first. A failure is fatal: the process logs `[atlas-db]` /
-   `[database]` and exits 1, as before.
+2. Atlas connects first. A transient failure — DNS, network, or server
+   selection — is retried up to `MONGODB_ATLAS_STARTUP_ATTEMPTS` times with a
+   doubling delay (1s, 2s, 4s, 8s, capped), because a resolver hiccup on one
+   shard host is not evidence that the cluster is unreachable. A rejected
+   credential or an unparseable connection string is **not** retried: it fails
+   identically every time and needs an operator. Once the attempts are spent
+   the failure is fatal: the process logs `[atlas-db]` / `[database]` and
+   exits 1, as before.
 3. Local MongoDB connects second. A failure is reported, then retried every
    10s in the background. The rest of the API keeps serving Atlas normally;
    every Time Management route answers **503** until the local connection is
    ready (`timeManagementDatabaseGuard.js`), and the delivery scheduler skips
    its ticks. Nothing is served from Atlas in the meantime. Set
    `MONGODB_LOCAL_REQUIRED=true` to make this fatal instead.
-4. HTTP starts listening only after step 2/3, and the scheduler starts last.
-5. `SIGINT`/`SIGTERM` stop the scheduler, stop accepting requests, then close
+4. The Time Management collections and their indexes are created before the
+   first request (`timeManagementCollections.js`), and again if local MongoDB
+   connects later. This is not just a warm-up: the usage-sync endpoint writes
+   inside a transaction, and MongoDB cannot create a collection inside one, so
+   on a database that has never been written the first sync would otherwise
+   fail with a transient write conflict.
+5. HTTP starts listening only after step 2/3, and the scheduler starts last.
+6. `SIGINT`/`SIGTERM` stop the scheduler, stop accepting requests, then close
    both connections.
 
 Repeated calls are de-duplicated, so no duplicate connection is ever opened.
+
+## Running the tests
+
+`npm test` needs a local mongod running (`scripts/start-local-mongod.cmd`) for
+the Time Management suites, and the Atlas connection in `config.env` for
+everything else.
+
+The Time Management suites never write to the database the backend is running
+against. `features/time_management_sharing/timeManagementTestDatabase.js`
+points each of them at a throwaway database on the same mongod — the same
+server, so the same replica set, which the transactional usage sync needs — and
+refuses any URI whose database name does not contain `test`:
+
+| Suite                                     | Database                               |
+| ----------------------------------------- | -------------------------------------- |
+| `timeManagementSharing`                   | `time_management_db_test_sharing`        |
+| `timeManagementSharingRoutes`             | `time_management_db_test_routes`         |
+| `timeManagementSharingScheduling`         | `time_management_db_test_scheduling`     |
+| `timeManagementShareConfigurations`       | `time_management_db_test_configurations` |
+
+One database per suite, because `node --test` runs the files in parallel and the
+delivery scheduler is global: it picks up every due share in the database it is
+pointed at, so a shared database lets one suite create a delivery that another
+suite then counts. Set `MONGODB_LOCAL_TEST_URI` to move them elsewhere; the
+suite name is still appended, and a database name without `test` in it is
+refused.
+
+With no mongod running, those suites skip themselves and say so instead of
+failing — every Time Management model is bound to the local connection, so
+without it each operation would buffer out after 10s and the cleanup in `after`
+would never finish, leaving the test process alive.
+
+`timeManagementDeviceUsageSync` has its own, older guard: it skips unless
+`MONGODB_SYNC_TEST_URI` names a test database.
+
+## Local development on Windows (portable mongod, no installer)
+
+Time Management has no fallback: with no local MongoDB running, every one of its
+endpoints answers **503** ("Time management storage is temporarily
+unavailable") — by design, so a developer's data never lands in Atlas. For a
+Windows development machine the quickest faithful setup is a portable mongod,
+which needs no installer and no administrator rights:
+
+1. Download the MongoDB Windows archive (`mongodb-windows-x86_64-8.0.15.zip`
+   from `https://fastdl.mongodb.org/windows/`) and extract it to
+   `D:\mongodb-portable\`, so `D:\mongodb-portable\mongodb-win32-…-8.0.15\bin\mongod.exe`
+   exists. Database files live outside it, in `D:\mongodb-data\db`, so they
+   survive replacing the binaries.
+2. Start it, and leave the window open:
+
+   ```bash
+   scripts/start-local-mongod.cmd
+   ```
+
+3. Once, to make transactions available (a single-node replica set):
+
+   ```bash
+   node scripts/init-local-mongod-replicaset.js
+   ```
+
+4. `MONGODB_LOCAL_URI` in `config.env`:
+
+   ```ini
+   MONGODB_LOCAL_URI=mongodb://127.0.0.1:27017/time_management_db?replicaSet=rs-tm
+   ```
+
+It binds to `127.0.0.1` only and runs without authentication, which is
+acceptable for a loopback-only development server and is **not** how the
+production server is configured (see below: there, authentication and a
+least-privilege user are required). mongod is not a service here, so it has to
+be started again after a reboot — the backend logs the failure, retries every
+10s, and Time Management recovers on its own once mongod is up.
 
 ## Installing local MongoDB on the deployment server (Ubuntu 22.04 / 24.04)
 

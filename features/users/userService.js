@@ -1,5 +1,10 @@
 const User = require("./userModel");
 const ApiError = require("../../utils/apiError");
+const {
+  sanitizeUserWrite,
+  assertMemberWriteAllowed,
+} = require("../../core/access/userWriteGuard");
+const engine = require("../../core/access/permissionEngine");
 
 const buildUserResponse = async (user) => ({
     _id: user._id,
@@ -26,13 +31,24 @@ const buildUserResponse = async (user) => ({
     photo: user.photo,
     files: user.files,
     access: user.access,
+    // The grants the permission engine reads. Returned so the client can
+    // show and edit them; the client's copy is never trusted on the way back.
+    permissions: (user.permissions || []).map((permission) => ({
+      resourceType: permission.resourceType,
+      resourceId: permission.resourceId,
+      resourceName: permission.resourceName,
+      actions: [...(permission.actions || [])],
+    })),
     isEmailVerified: user.isEmailVerified,
     createdAt: user.createdAt,
     updatedAt: user.updatedAt,
   });
 
-exports.createUser = async (userData) => {
-  const user = await User.create(userData);
+exports.createUser = async (userData, actor = null) => {
+  // A create carries no stored state to compare against, so every role and
+  // grant in the payload has to be one the actor may hand out.
+  const safeData = actor ? sanitizeUserWrite(actor, userData, { current: null }) : userData;
+  const user = await User.create(safeData);
   return buildUserResponse(user);
 };
 
@@ -96,11 +112,25 @@ exports.getAllUsers = async (query = {}) => {
   };
 };
 
-exports.updateUser = async (id, updateData) => {
+exports.updateUser = async (id, updateData, actor = null) => {
   const { goldCoins, silverCoins, ...safeUpdateData } = updateData;
+
+  let payload = safeUpdateData;
+
+  if (actor) {
+    // Read the stored user first: the escalation checks compare the payload
+    // against what is already there, and the 404 is owed either way.
+    const current = await User.findById(id).select("role permissions");
+    if (!current) {
+      throw new ApiError("User not found", 404);
+    }
+    assertMemberWriteAllowed(actor, id, "update");
+    payload = sanitizeUserWrite(actor, safeUpdateData, { current });
+  }
+
   const user = await User.findByIdAndUpdate(
     id,
-    { ...safeUpdateData },
+    { ...payload },
     {
       new: true,
       runValidators: true,
@@ -114,7 +144,11 @@ exports.updateUser = async (id, updateData) => {
   return buildUserResponse(user);
 };
 
-exports.deleteUser = async (id) => {
+exports.deleteUser = async (id, actor = null) => {
+  if (actor) {
+    assertMemberWriteAllowed(actor, id, "delete");
+  }
+
   const user = await User.findByIdAndDelete(id);
 
   if (!user) {
@@ -156,9 +190,19 @@ exports.updateUserStatus = async (id, status) => {
   return buildUserResponse(user);
 };
 
-exports.updateUserRole = async (id, role) => {
+exports.updateUserRole = async (id, role, actor = null) => {
   if (typeof role !== "string" || !role.trim()) {
     throw new ApiError("Invalid role", 400);
+  }
+
+  if (actor) {
+    // The dedicated role endpoint is the shortest path to escalation, so it
+    // carries the same ceiling as the generic update: strictly more junior
+    // than the actor, and only on a member they may write to.
+    assertMemberWriteAllowed(actor, id, "update");
+    if (!engine.canAssignRole(actor, role)) {
+      throw new ApiError(`You may not assign the role "${role.trim()}"`, 403);
+    }
   }
 
   const user = await User.findByIdAndUpdate(

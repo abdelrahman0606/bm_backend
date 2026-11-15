@@ -9,13 +9,27 @@ const {
   validatorMiddleware,
 } = require("../../middlewares/validatorMiddleware");
 const { verifyAuthToken } = require("../../middlewares/authMiddleware");
+const {
+  attachActor,
+  actorOf,
+  requirePermission,
+} = require("../../core/access/accessMiddleware");
+const { scopeEnforced } = require("../../core/access/accessConfig");
 
-// All routes require authentication
-router.use(verifyAuthToken);
+// All routes require authentication, and carry the caller's own role and
+// grants so the service can decide what they may reach.
+router.use(verifyAuthToken, attachActor);
+
+/// Applies a permission gate only while scope enforcement is staged on.
+const gate = (resource, action, options) => (req, res, next) =>
+  scopeEnforced()
+    ? requirePermission(resource, action, options)(req, res, next)
+    : next();
 
 // Create a new company
 router.post(
   "/",
+  gate("company", "create"),
   validateCompanyCreate,
   validatorMiddleware,
   async (req, res, next) => {
@@ -35,7 +49,11 @@ router.post(
 // Get all companies
 router.get("/", async (req, res, next) => {
   try {
-    const result = await companyService.getCompanies(req.query, req.userId);
+    const result = await companyService.getCompanies(
+      req.query,
+      req.userId,
+      actorOf(req),
+    );
     res.status(200).json({
       success: true,
       data: result.companies,
@@ -50,7 +68,11 @@ router.get("/", async (req, res, next) => {
 // Get company by ID
 router.get("/:id", async (req, res, next) => {
   try {
-    const company = await companyService.getCompanyById(req.params.id, req.userId);
+    const company = await companyService.getCompanyById(
+      req.params.id,
+      req.userId,
+      actorOf(req),
+    );
     res.status(200).json({
       success: true,
       data: company,
@@ -71,7 +93,8 @@ router.put(
       const company = await companyService.updateCompany(
         req.params.id,
         req.body,
-        req.userId
+        req.userId,
+        actorOf(req),
       );
       res.status(200).json({
         success: true,
@@ -87,7 +110,11 @@ router.put(
 // Delete company
 router.delete("/:id", async (req, res, next) => {
   try {
-    await companyService.deleteCompany(req.params.id, req.userId);
+    await companyService.deleteCompany(
+      req.params.id,
+      req.userId,
+      actorOf(req),
+    );
     res.status(200).json({
       success: true,
       message: "Company deleted successfully",

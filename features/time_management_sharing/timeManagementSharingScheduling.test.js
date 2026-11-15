@@ -1,4 +1,4 @@
-const { test, describe, before, after } = require("node:test");
+const { test, describe, before, beforeEach, after } = require("node:test");
 const assert = require("node:assert");
 const path = require("path");
 const dotenv = require("dotenv");
@@ -16,12 +16,26 @@ const scheduler = require("./timeManagementShareScheduler");
 const UserModel = require("../users/userModel");
 const CompanyModel = require("../companies/companyModel");
 const NotificationModel = require("../notifications/notificationModel");
+const {
+  connectLocalTestDatabase,
+  closeLocalTestDatabase,
+  testDatabaseName,
+} = require("./timeManagementTestDatabase");
+
+/** Keeps this suite's local-MongoDB database separate from the other suites'. */
+const SUITE_TAG = "scheduling";
 
 /**
  * Covers the Share Time configuration scopes, the recipient approval lifecycle,
  * manual sharing, and the backend scheduler that performs automatic sharing.
  */
 describe("Share Time scopes, approval and scheduling", () => {
+  // The Time Management models this suite writes to live on local MongoDB, not
+  // on the Atlas connection the users and companies are created on, so both
+  // have to be open; otherwise every operation buffers out and the cleanup in
+  // `after` never finishes, which leaves the test process running — see
+  // timeManagementTestDatabase.js.
+  let localDbReady = false;
   let owner; // data owner / sender
   let recipient; // target person (also a manager of the test company)
   let stranger; // unrelated user
@@ -32,6 +46,9 @@ describe("Share Time scopes, approval and scheduling", () => {
     if (mongoose.connection.readyState === 0) {
       await mongoose.connect(process.env.MONGODB_URI);
     }
+
+    localDbReady = await connectLocalTestDatabase(SUITE_TAG);
+    if (!localDbReady) return;
 
     owner = await UserModel.create({
       fullName: `Share Owner ${suffix}`,
@@ -74,7 +91,23 @@ describe("Share Time scopes, approval and scheduling", () => {
     });
   });
 
+  beforeEach((t) => {
+    if (!localDbReady) {
+      t.skip(
+        `local MongoDB (${testDatabaseName(SUITE_TAG)}) is not running; start scripts/start-local-mongod.cmd`,
+      );
+    }
+  });
+
   after(async () => {
+    // With no local database there is nothing to clean up, and the test users
+    // were never created either.
+    if (!localDbReady) {
+      await closeLocalTestDatabase();
+      await mongoose.disconnect();
+      return;
+    }
+
     const ids = [owner._id, recipient._id, stranger._id];
     const either = {
       $or: [{ senderUserId: { $in: ids } }, { recipientUserId: { $in: ids } }],
@@ -88,6 +121,7 @@ describe("Share Time scopes, approval and scheduling", () => {
     if (company) await CompanyModel.deleteOne({ _id: company._id });
     await UserModel.deleteMany({ _id: { $in: ids } });
 
+    await closeLocalTestDatabase();
     await mongoose.disconnect();
   });
 

@@ -9,6 +9,11 @@ const NotificationType = {
   STATUS_CHANGED: "status_changed",
   FILE_UPLOAD: "file_upload",
   GENERAL: "general",
+  // Face registration approval. Three types rather than one, so a client can
+  // route and style them differently without parsing the body text.
+  FACE_REGISTRATION_REQUESTED: "face_registration_requested",
+  FACE_REGISTRATION_APPROVED: "face_registration_approved",
+  FACE_REGISTRATION_REJECTED: "face_registration_rejected",
 };
 
 /**

@@ -1,4 +1,4 @@
-const { test, describe, before, after } = require("node:test");
+const { test, describe, before, beforeEach, after } = require("node:test");
 const assert = require("node:assert");
 const path = require("path");
 const dotenv = require("dotenv");
@@ -16,8 +16,21 @@ const NotificationModel = require("../notifications/notificationModel");
 const scheduleUtils = require("./timeManagementScheduleUtils");
 const scheduler = require("./timeManagementShareScheduler");
 const UserModel = require("../users/userModel");
+const {
+  connectLocalTestDatabase,
+  closeLocalTestDatabase,
+  testDatabaseName,
+} = require("./timeManagementTestDatabase");
+
+/** Keeps this suite's local-MongoDB database separate from the other suites'. */
+const SUITE_TAG = "sharing";
 
 describe("Time Management Sharing and Synchronization", () => {
+  // Every model used here lives on local MongoDB, not on the Atlas connection
+  // the users and companies are created on, so both have to be open. False
+  // when mongod is not running, which skips the suite instead of letting every
+  // operation buffer out — see timeManagementTestDatabase.js.
+  let localDbReady = false;
   let userA; // Sender / Owner
   let userB; // Recipient
   let userC; // Third party / Attacker
@@ -28,6 +41,9 @@ describe("Time Management Sharing and Synchronization", () => {
     if (mongoose.connection.readyState === 0) {
       await mongoose.connect(process.env.MONGODB_URI);
     }
+
+    localDbReady = await connectLocalTestDatabase(SUITE_TAG);
+    if (!localDbReady) return;
 
     // Create 3 test users
     userA = await UserModel.create({
@@ -71,7 +87,23 @@ describe("Time Management Sharing and Synchronization", () => {
     });
   });
 
+  beforeEach((t) => {
+    if (!localDbReady) {
+      t.skip(
+        `local MongoDB (${testDatabaseName(SUITE_TAG)}) is not running; start scripts/start-local-mongod.cmd`,
+      );
+    }
+  });
+
   after(async () => {
+    // With no local database there is nothing to clean up, and the test users
+    // were never created either.
+    if (!localDbReady) {
+      await closeLocalTestDatabase();
+      await mongoose.disconnect();
+      return;
+    }
+
     // Cleanup created test records
     await TimeManagementShareModel.deleteMany({
       $or: [
@@ -105,6 +137,7 @@ describe("Time Management Sharing and Synchronization", () => {
       _id: { $in: [userA._id, userB._id, userC._id] },
     });
 
+    await closeLocalTestDatabase();
     await mongoose.disconnect();
   });
 

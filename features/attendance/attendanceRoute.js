@@ -2,11 +2,14 @@ const express = require("express");
 
 const router = express.Router();
 const attendanceService = require("./attendanceService");
+const faceRegistrationService = require("./faceRegistrationService");
 const {
   validateQrGeneration,
   validateCheckIn,
   validateFaceProfileRegistration,
   validateLocationRegistration,
+  validateFaceRegistrationRequest,
+  validateFaceRegistrationDecision,
 } = require("./attendanceValidator");
 const {
   validatorMiddleware,
@@ -118,6 +121,116 @@ router.post(
         success: true,
         data: attendance,
         message: "Attendance recorded successfully",
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+// --------------------------------------------------------------------------
+// Face registration approval
+//
+// Every handler takes the acting user from req.userId, which the verified
+// token produced. None of them reads an identity from the body.
+// --------------------------------------------------------------------------
+
+// Where my own registration stands.
+router.get("/face-registration/me", async (req, res, next) => {
+  try {
+    const status = await faceRegistrationService.getMyStatus(
+      req.userId,
+      req.query.companyId
+    );
+    res.status(200).json({
+      success: true,
+      data: status,
+      message: "Face registration status fetched successfully",
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Apply to register, or re-apply after a rejection.
+router.post(
+  "/face-registration/request",
+  validateFaceRegistrationRequest,
+  validatorMiddleware,
+  async (req, res, next) => {
+    try {
+      const result = await faceRegistrationService.requestRegistration(
+        req.userId,
+        req.body
+      );
+      res.status(result.created ? 201 : 200).json({
+        success: true,
+        data: result.registration,
+        notified: result.notified,
+        message: result.created
+          ? "Face registration request submitted for approval"
+          : "Face registration request is already awaiting approval",
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+// How many are waiting on me. Its own endpoint so a badge is one cheap call.
+router.get("/face-registration/pending-count", async (req, res, next) => {
+  try {
+    const result = await faceRegistrationService.pendingCountForApprover(
+      req.userId,
+      req.query.companyId
+    );
+    res.status(200).json({
+      success: true,
+      data: result,
+      message: "Pending face registration count fetched successfully",
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// The queue I may decide.
+router.get("/face-registrations", async (req, res, next) => {
+  try {
+    const result = await faceRegistrationService.listForApprover(
+      req.userId,
+      req.query
+    );
+    res.status(200).json({
+      success: true,
+      data: result.registrations,
+      companyId: result.companyId,
+      pagination: result.pagination,
+      message: "Face registrations fetched successfully",
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Decide one. The id is checked against the company the record belongs to,
+// not against anything the caller sent.
+router.patch(
+  "/face-registrations/:id/decision",
+  validateFaceRegistrationDecision,
+  validatorMiddleware,
+  async (req, res, next) => {
+    try {
+      const result = await faceRegistrationService.decide(
+        req.userId,
+        req.params.id,
+        req.body
+      );
+      res.status(200).json({
+        success: true,
+        data: result.registration,
+        notified: result.notified,
+        message: `Face registration ${result.registration.status}`,
       });
     } catch (error) {
       next(error);

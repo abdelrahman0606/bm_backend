@@ -1,4 +1,4 @@
-const { test, describe, before, after } = require("node:test");
+const { test, describe, before, beforeEach, after } = require("node:test");
 const assert = require("node:assert");
 const path = require("path");
 const http = require("http");
@@ -17,6 +17,14 @@ const TimeManagementSyncBatchModel = require("./timeManagementSyncBatchModel");
 const TimeManagementShareDeliveryModel = require("./timeManagementShareDeliveryModel");
 const UserModel = require("../users/userModel");
 const NotificationModel = require("../notifications/notificationModel");
+const {
+  connectLocalTestDatabase,
+  closeLocalTestDatabase,
+  testDatabaseName,
+} = require("./timeManagementTestDatabase");
+
+/** Keeps this suite's local-MongoDB database separate from the other suites'. */
+const SUITE_TAG = "routes";
 
 /**
  * Exercises the sharing endpoints over real HTTP: router wiring, request
@@ -24,6 +32,12 @@ const NotificationModel = require("../notifications/notificationModel");
  * server uses.
  */
 describe("Share Time HTTP endpoints", () => {
+  // The Time Management models this suite writes to live on local MongoDB, not
+  // on the Atlas connection the users and companies are created on, so both
+  // have to be open; otherwise every operation buffers out and the cleanup in
+  // `after` never finishes, which leaves the test process running — see
+  // timeManagementTestDatabase.js.
+  let localDbReady = false;
   let server;
   let baseUrl;
   let owner;
@@ -64,6 +78,9 @@ describe("Share Time HTTP endpoints", () => {
       await mongoose.connect(process.env.MONGODB_URI);
     }
 
+    localDbReady = await connectLocalTestDatabase(SUITE_TAG);
+    if (!localDbReady) return;
+
     const makeUser = (name, phone, role) =>
       UserModel.create({
         fullName: `${name} ${suffix}`,
@@ -94,8 +111,24 @@ describe("Share Time HTTP endpoints", () => {
     baseUrl = `http://127.0.0.1:${server.address().port}/api/v1/time-management-shares`;
   });
 
+  beforeEach((t) => {
+    if (!localDbReady) {
+      t.skip(
+        `local MongoDB (${testDatabaseName(SUITE_TAG)}) is not running; start scripts/start-local-mongod.cmd`,
+      );
+    }
+  });
+
   after(async () => {
     if (server) await new Promise((resolve) => server.close(resolve));
+
+    // With no local database there is nothing to clean up, and the test users
+    // were never created either.
+    if (!localDbReady) {
+      await closeLocalTestDatabase();
+      await mongoose.disconnect();
+      return;
+    }
 
     const ids = [owner._id, recipient._id, stranger._id];
     const either = {
@@ -108,6 +141,7 @@ describe("Share Time HTTP endpoints", () => {
     await NotificationModel.deleteMany({ userId: { $in: ids } });
     await UserModel.deleteMany({ _id: { $in: ids } });
 
+    await closeLocalTestDatabase();
     await mongoose.disconnect();
   });
 

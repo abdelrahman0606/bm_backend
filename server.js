@@ -51,6 +51,9 @@ require("./features/time_management_sharing/timeManagementShareDeliveryModel");
 require("./features/time_management_sharing/timeManagementShareLinkModel");
 require("./features/time_management_sharing/timeManagementDeviceUsageModel");
 require("./features/time_management_sharing/timeManagementDeviceSyncBatchModel");
+const {
+  prepareTimeManagementCollections,
+} = require("./features/time_management_sharing/timeManagementCollections");
 const userRoute = require("./features/users/userRoute");
 const authRoute = require("./features/auth/authRoute");
 const tasksManagementRoute = require("./features/tasks_management/tasksManagementRoute");
@@ -151,6 +154,11 @@ let server = null;
 // serving normally while Time Management answers 503 (see database.manager).
 const start = async () => {
   await initializeDatabases();
+
+  // Create the Time Management collections and indexes before the first
+  // request, so a transactional sync never has to create one (MongoDB cannot,
+  // inside a transaction). Also re-runs if local MongoDB connects later.
+  prepareTimeManagementCollections();
 
   server = httpServer.listen(PORT, () => {
     console.log(`Server is running on

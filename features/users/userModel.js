@@ -1,4 +1,5 @@
 const mongoose = require("mongoose");
+const { permissionSchema } = require("../../core/access/permissionModel");
 
 const userSchema = new mongoose.Schema(
   {
@@ -125,6 +126,13 @@ const userSchema = new mongoose.Schema(
     },
     access: {
       type: [String],
+      default: [],
+    },
+    // The grants the permission engine evaluates. Previously the client sent
+    // these and mongoose dropped them silently, because the field did not
+    // exist — so no permission was ever actually stored.
+    permissions: {
+      type: [permissionSchema],
       default: [],
     },
     isEmailVerified: {

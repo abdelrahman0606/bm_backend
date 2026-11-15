@@ -12,6 +12,16 @@ const {
   validatorMiddleware,
 } = require("../../middlewares/validatorMiddleware");
 const { verifyAuthToken } = require("../../middlewares/authMiddleware");
+const { attachActor, actorOf } = require("../../core/access/accessMiddleware");
+
+// Every user route needs a verified token. Before this, the whole directory
+// — listing, creating, deleting, changing roles — was reachable with no
+// authentication at all. The one exception is the pre-registration email
+// check, which is reached before anybody has a token.
+router.use((req, res, next) => {
+  if (req.method === "POST" && req.path === "/check/email") return next();
+  return verifyAuthToken(req, res, () => attachActor(req, res, next));
+});
 
 // Create a new user
 router.post(
@@ -20,7 +30,7 @@ router.post(
   validatorMiddleware,
   async (req, res, next) => {
     try {
-      const user = await userService.createUser(req.body);
+      const user = await userService.createUser(req.body, actorOf(req));
       res.status(201).json({
         success: true,
         data: user,
@@ -62,7 +72,7 @@ router.get("/online", async (req, res, next) => {
 });
 
 // Add device token for current user
-router.patch("/me/device-token", verifyAuthToken, async (req, res, next) => {
+router.patch("/me/device-token", async (req, res, next) => {
   try {
     const { token } = req.body;
     const user = await userService.addDeviceToken(req.userId, token);
@@ -111,7 +121,11 @@ router.put(
   validatorMiddleware,
   async (req, res, next) => {
     try {
-      const user = await userService.updateUser(req.params.id, req.body);
+      const user = await userService.updateUser(
+        req.params.id,
+        req.body,
+        actorOf(req),
+      );
       res.status(200).json({
         success: true,
         data: user,
@@ -126,7 +140,7 @@ router.put(
 // Delete user
 router.delete("/:id", async (req, res, next) => {
   try {
-    await userService.deleteUser(req.params.id);
+    await userService.deleteUser(req.params.id, actorOf(req));
     res.status(200).json({
       success: true,
       message: "User deleted successfully",
@@ -169,7 +183,11 @@ router.patch("/:id/status", async (req, res, next) => {
 router.patch("/:id/role", async (req, res, next) => {
   try {
     const { role } = req.body;
-    const user = await userService.updateUserRole(req.params.id, role);
+    const user = await userService.updateUserRole(
+      req.params.id,
+      role,
+      actorOf(req),
+    );
     res.status(200).json({
       success: true,
       data: user,
