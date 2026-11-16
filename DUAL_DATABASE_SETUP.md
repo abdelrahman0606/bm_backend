@@ -163,6 +163,24 @@ be started again after a reboot — the backend logs the failure, retries every
 > They install a new service; they do not change the existing application or
 > restart it. **Do not restart production services without authorization.**
 
+`scripts/setup-local-mongod-linux.sh` performs steps 1 to 5 below and then
+writes `MONGODB_LOCAL_URI` into the `config.env` you point it at, with a
+generated password it never prints. It restarts `mongod` (not the app), and it
+is safe to run again: each step checks whether it has already been done.
+
+```bash
+sudo ./scripts/setup-local-mongod-linux.sh --config /path/to/config.env
+```
+
+It stops without changing anything if authentication is already enabled and
+`MONGODB_LOCAL_URI` is already set, because it cannot read that password back
+to reuse it. To rotate the password, remove the `MONGODB_LOCAL_URI` line from
+`config.env` and run it again. It never restarts the application, so finish
+with `pm2 restart bm_backend` yourself.
+
+The steps below are what the script does, kept as the reference — and for a
+server you would rather configure by hand.
+
 ### 1. Install MongoDB Community Server 8.0
 
 ```bash

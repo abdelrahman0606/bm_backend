@@ -1,8 +1,8 @@
 const mongoose = require("mongoose");
 const Company = require("./companyModel");
+const User = require("../users/userModel");
 const ApiError = require("../../utils/apiError");
 const engine = require("../../core/access/permissionEngine");
-const { objectIdScopeFilter } = require("../../core/access/accessMiddleware");
 const { scopeEnforced } = require("../../core/access/accessConfig");
 
 /**
@@ -15,7 +15,17 @@ const { scopeEnforced } = require("../../core/access/accessConfig");
  */
 const _mayReach = (actor, company, action) => {
   if (!company) return false;
+  if (actor && actor.isMaster) return true;
   if (actor && actor.id && String(company.createdBy) === String(actor.id)) return true;
+
+  // Check if user holds a company grant for this company (ignoring actions for view)
+  const hasCompanyGrant = (actor?.permissions || []).some((p) => {
+    if (!p || String(p.resourceType).trim().toLowerCase() !== "company") return false;
+    const resId = String(p.resourceId || "").trim();
+    return resId === "*" || resId.toLowerCase() === "all" || resId === String(company._id);
+  });
+  if (hasCompanyGrant && action === "view") return true;
+
   if (!scopeEnforced()) return true;
   return engine.can(actor, "company", action, String(company._id));
 };
@@ -65,26 +75,50 @@ exports.getCompanies = async (query = {}, userId, actor = null) => {
     filter.title = { $regex: search, $options: "i" };
   }
 
-  // Before this, the list ignored the caller entirely: every authenticated
-  // user was handed every company. Now the caller sees the companies they
-  // created plus the ones they hold a grant on, and the count matches the
-  // page — a client-side filter would have broken both.
-  const conditions = [];
+  // Determine current user permissions & role
+  let permissions = actor?.permissions;
+  let userRole = actor?.role;
 
-  if (actor && scopeEnforced()) {
-    const scope = objectIdScopeFilter(actor, "company", "view");
-    const own = { createdBy: String(actor.id) };
-    // An unrestricted actor contributes no clause; otherwise the two reach
-    // conditions are OR-ed, and kept in $and so a search cannot overwrite
-    // them the way a bare $or assignment would.
-    if (Object.keys(scope).length > 0) {
-      conditions.push({ $or: [own, scope] });
+  if ((!permissions || permissions.length === 0) && userId) {
+    const userDoc = await User.findById(userId).select("role permissions");
+    if (userDoc) {
+      userRole = userRole || userDoc.role;
+      permissions = userDoc.permissions || [];
     }
   }
 
-  // The client may narrow the request to the ids it knows it may see. It is
-  // an extra condition, never a replacement for the one above, so widening
-  // the parameter by hand buys nothing.
+  const isMaster = Boolean(actor?.isMaster || userRole === "master");
+
+  // Filter permissions where resourceType is "company" (without checking actions)
+  const companyPermissions = (permissions || []).filter(
+    (p) => p && String(p.resourceType).trim().toLowerCase() === "company"
+  );
+
+  const hasAllCompanies = companyPermissions.some((p) => {
+    const resId = String(p.resourceId || "").trim();
+    return resId === "*" || resId.toLowerCase() === "all" || resId === "";
+  });
+
+  const conditions = [];
+
+  if (!hasAllCompanies) {
+    if (companyPermissions.length > 0) {
+      // User has specific company permissions -> get only these companies
+      const allowedIds = [
+        ...new Set(
+          companyPermissions
+            .map((p) => String(p.resourceId || "").trim())
+            .filter((id) => mongoose.Types.ObjectId.isValid(id))
+        ),
+      ];
+      conditions.push({ _id: { $in: allowedIds } });
+    } else if (!isMaster) {
+      // Non-master user with no company permissions sees nothing
+      conditions.push({ _id: { $in: [] } });
+    }
+  }
+
+  // The client may narrow the request to the ids it knows it may see.
   const requestedIds = _parseIds(query.ids);
   if (requestedIds !== null) {
     conditions.push({ _id: { $in: requestedIds } });
@@ -114,8 +148,6 @@ exports.getCompanies = async (query = {}, userId, actor = null) => {
 };
 
 exports.getCompanyById = async (id, userId, actor = null) => {
-  // The previous query filtered on `id`, which is a virtual and not a stored
-  // path, so it matched nothing and this endpoint always reported 404.
   if (!mongoose.Types.ObjectId.isValid(id)) {
     throw new ApiError("Company not found", 404);
   }
@@ -125,7 +157,24 @@ exports.getCompanyById = async (id, userId, actor = null) => {
     throw new ApiError("Company not found", 404);
   }
 
-  if (!_mayReach(actor ?? { id: userId }, company, "view")) {
+  let currentActor = actor;
+  if ((!currentActor || !currentActor.permissions || currentActor.permissions.length === 0) && userId) {
+    const userDoc = await User.findById(userId).select("role permissions");
+    if (userDoc) {
+      currentActor = new engine.Actor({
+        id: String(userDoc._id),
+        role: userDoc.role,
+        permissions: (userDoc.permissions || []).map((p) => ({
+          resourceType: p.resourceType,
+          resourceId: p.resourceId,
+          resourceName: p.resourceName,
+          actions: [...(p.actions || [])],
+        })),
+      });
+    }
+  }
+
+  if (!_mayReach(currentActor ?? { id: userId }, company, "view")) {
     throw new ApiError("You do not have access to this company", 403);
   }
 

@@ -66,9 +66,54 @@ const permissionSchema = new mongoose.Schema(
   { _id: false }
 );
 
+/**
+ * The grants in `raw` that can be stored on a user, normalized.
+ *
+ * An invitation carries whatever the inviting client sent: the field is
+ * `Mixed` and validation only checked that it was an array. A user document
+ * is strict, so one malformed grant would make `User.create` throw and cost
+ * somebody their registration. Dropping a grant that names a resource or an
+ * action we do not recognise loses access no engine could have evaluated
+ * anyway; refusing the registration loses the account.
+ *
+ * An empty `resourceId` means "every entity of this type" to both permission
+ * engines, so it becomes `ALL_ENTITIES` rather than being dropped: the schema
+ * requires the field, and the meaning has to survive the copy.
+ *
+ * A grant carrying no valid action grants nothing, so it is not stored.
+ */
+const sanitizePermissions = (raw) => {
+  if (!Array.isArray(raw)) return [];
+
+  return raw.reduce((kept, grant) => {
+    if (!grant || typeof grant !== "object") return kept;
+
+    const resourceType = String(grant.resourceType || "").trim();
+    if (!RESOURCE_TYPES.includes(resourceType)) return kept;
+
+    const actions = [
+      ...new Set(
+        (Array.isArray(grant.actions) ? grant.actions : [])
+          .map((action) => String(action || "").trim())
+          .filter((action) => PERMISSION_ACTIONS.includes(action))
+      ),
+    ];
+    if (actions.length === 0) return kept;
+
+    kept.push({
+      resourceType,
+      resourceId: String(grant.resourceId || "").trim() || ALL_ENTITIES,
+      resourceName: String(grant.resourceName || "").trim(),
+      actions,
+    });
+    return kept;
+  }, []);
+};
+
 module.exports = {
   permissionSchema,
   RESOURCE_TYPES,
   PERMISSION_ACTIONS,
   ALL_ENTITIES,
+  sanitizePermissions,
 };

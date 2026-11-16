@@ -6,6 +6,7 @@ const { OAuth2Client } = require("google-auth-library");
 const User = require("../users/userModel");
 const ApiError = require("../../utils/apiError");
 const invitationService = require("../invitations/invitationService");
+const { sanitizePermissions } = require("../../core/access/permissionModel");
 
 const JWT_SECRET =
   process.env.JWT_SECRET || "your-secret-key-change-in-production";
@@ -185,6 +186,14 @@ const buildUserResponse = async (user) => {
     notionalId: user.notionalId,
     relation: user.relation,
     jobs: user.jobs,
+    // Stored on the user but previously left out here, so a client that had
+    // just registered or logged in saw no grants at all.
+    permissions: (user.permissions || []).map((permission) => ({
+      resourceType: permission.resourceType,
+      resourceId: permission.resourceId,
+      resourceName: permission.resourceName,
+      actions: [...(permission.actions || [])],
+    })),
     rate: user.rate,
     bio: user.bio,
     photo: user.photo,
@@ -222,14 +231,25 @@ exports.register = async (userData) => {
     role: invitation.role,
     employeeType: invitation.employeeType,
     jobs: invitation.jobs,
+    // The access the invitation was written with. Without this the account
+    // is created with an empty `permissions` array and the invited user can
+    // reach nothing the engine guards, however the inviter filled the form.
+    permissions: sanitizePermissions(invitation.permissions),
+    // The link between this account and its company: `companyResolver` reads
+    // `User.regiCode` -> `Invitation.regiCode` -> `companyId`, and without it
+    // every invited user belongs to no company and is told to ask an
+    // administrator for the invitation they just used.
+    regiCode: invitation.regiCode,
     status: "active",
     isEmailVerified: false,
     relation: "self",
     birthday: new Date(),
   });
 
-  // Delete the invitation once it has been consumed successfully
-  await invitationService.deleteInvitation(invitation.id);
+  // Accepted, not deleted: the row is what ties this account to its company,
+  // so it has to outlive the registration. Accepting it is also what stops
+  // the code being used a second time.
+  await invitationService.acceptInvitation(invitation.id);
 
   // Generate tokens
   const token = generateToken(user._id);
@@ -311,6 +331,8 @@ exports.googleAuth = async (idToken, platform = "web", authType, invitationCode)
       role: invitation.role,
       employeeType: invitation.employeeType,
       jobs: invitation.jobs,
+      permissions: sanitizePermissions(invitation.permissions),
+      regiCode: invitation.regiCode,
       status: "active",
       isEmailVerified: Boolean(payload.email_verified),
       phone: "0000000000",
@@ -319,7 +341,7 @@ exports.googleAuth = async (idToken, platform = "web", authType, invitationCode)
     });
 
     if (invitation) {
-      await invitationService.deleteInvitation(invitation.id);
+      await invitationService.acceptInvitation(invitation.id);
     }
   } else {
     if (authType === "register") {
