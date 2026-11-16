@@ -1,0 +1,9 @@
+# Shell scripts run on the Linux server, so they must keep LF endings whatever
+# core.autocrlf is set to on the machine that commits them. With CRLF, the
+# shebang line ends in \r and the server fails with a bare
+# "bad interpreter: /usr/bin/env bash^M: no such file or directory".
+*.sh text eol=lf
+
+# Windows batch files are the mirror image: they need CRLF.
+*.cmd text eol=crlf
+*.bat text eol=crlf
