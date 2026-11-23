@@ -627,3 +627,84 @@ test("a login url request is refused for a non-loopback redirect", async () => {
     assert.match(res.body, /loopback/);
   });
 });
+
+// ── failure reporting ──────────────────────────────────────────────────────
+// A token that cannot be verified used to surface as a bare 502. These cover
+// the claims peek that explains why, which is decode-only and never trusted
+// to establish identity.
+
+const makeIdToken = (claims) => {
+  const encode = (value) =>
+    Buffer.from(JSON.stringify(value))
+      .toString("base64")
+      .replace(/\+/g, "-")
+      .replace(/\//g, "_")
+      .replace(/=+$/, "");
+  return `${encode({ alg: "RS256" })}.${encode(claims)}.signature`;
+};
+
+test("the claims peek reads audience, expiry and email presence", () => {
+  const future = Math.floor(Date.now() / 1000) + 3600;
+  const claims = googleOAuth.peekIdTokenClaims(
+    makeIdToken({
+      aud: "desktop-client-id",
+      iss: "https://accounts.google.com",
+      exp: future,
+      email: "someone@example.com",
+    }),
+  );
+
+  assert.strictEqual(claims.aud, "desktop-client-id");
+  assert.strictEqual(claims.iss, "https://accounts.google.com");
+  assert.strictEqual(claims.expired, false);
+  assert.strictEqual(claims.hasEmail, true);
+});
+
+test("a token that is not a token peeks to null, not a throw", () => {
+  assert.strictEqual(googleOAuth.peekIdTokenClaims("garbage"), null);
+  assert.strictEqual(googleOAuth.peekIdTokenClaims(""), null);
+  assert.strictEqual(googleOAuth.peekIdTokenClaims("a.b.c"), null);
+});
+
+test("an audience from another client id is named in the description", () => {
+  const described = googleOAuth.describeIdToken(
+    makeIdToken({
+      aud: "someone-elses-client-id",
+      exp: Math.floor(Date.now() / 1000) + 3600,
+      email: "a@b.c",
+    }),
+  );
+  assert.match(described, /audience/);
+  assert.match(described, /someone-elses-client-id/);
+});
+
+test("the configured client ids are recognised as ours", () => {
+  const described = googleOAuth.describeIdToken(
+    makeIdToken({
+      aud: "desktop-client-id",
+      exp: Math.floor(Date.now() / 1000) + 3600,
+      email: "a@b.c",
+    }),
+  );
+  // Nothing to report: the audience is one of ours and it has not expired.
+  assert.match(described, /no obvious problem/);
+  assert.ok(googleOAuth.allConfiguredClientIds().includes("desktop-client-id"));
+});
+
+test("an expired token and a missing email are both called out", () => {
+  const described = googleOAuth.describeIdToken(
+    makeIdToken({
+      aud: "desktop-client-id",
+      exp: Math.floor(Date.now() / 1000) - 60,
+    }),
+  );
+  assert.match(described, /expired/);
+  assert.match(described, /no email claim/);
+});
+
+test("a garbage token says so rather than inventing a reason", () => {
+  assert.match(
+    googleOAuth.describeIdToken("not-a-token"),
+    /could not be decoded/,
+  );
+});

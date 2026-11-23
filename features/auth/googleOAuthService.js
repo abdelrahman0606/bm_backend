@@ -1,108 +1,3 @@
-/** Every Google client id this deployment knows about. */
-const allConfiguredClientIds = () =>
-  [
-    process.env.GOOGLE_CLIENT_ID_WEB,
-    process.env.GOOGLE_CLIENT_ID_DESKTOP,
-    process.env.GOOGLE_CLIENT_ID_ANDROID,
-    process.env.GOOGLE_CLIENT_ID_IOS,
-    process.env.GOOGLE_CLIENT_ID,
-  ].filter(Boolean);
-
-/**
- * Reads an id token's claims **without verifying it**.
- *
- * Only ever used to explain a verification failure: an audience that belongs
- * to a different client, or an expiry in the past, are the two usual causes
- * and both are invisible otherwise. Never use this to establish identity.
- */
-const peekIdTokenClaims = (idToken) => {
-  try {
-    const segment = String(idToken).split(".")[1];
-    if (!segment) return null;
-    const json = Buffer.from(
-      segment.replace(/-/g, "+").replace(/_/g, "/"),
-      "base64",
-    ).toString("utf8");
-    const claims = JSON.parse(json);
-    return {
-      aud: claims.aud || null,
-      iss: claims.iss || null,
-      exp: claims.exp || null,
-      expired: claims.exp ? claims.exp * 1000 < Date.now() : null,
-      hasEmail: Boolean(claims.email),
-    };
-  } catch {
-    return null;
-  }
-};
-
-/** A one-line summary of why a token looks wrong, for an error message. */
-const describeIdToken = (idToken) => {
-  const claims = peekIdTokenClaims(idToken);
-  if (!claims) return "the token could not be decoded";
-  const parts = [];
-  if (claims.expired) parts.push("it expired");
-  if (!claims.hasEmail) parts.push("it carries no email claim");
-  if (claims.aud && !allConfiguredClientIds().includes(claims.aud)) {
-    parts.push(
-      `its audience (${claims.aud}) is not one of this server's client ids`,
-    );
-  }
-  if (parts.length === 0) return "no obvious problem with its claims";
-  return parts.join(", and ");
-};
-
-/**
- * Verifies an id token and returns the identity in it, or throws.
- *
- * The audience is checked against every configured client id, not just the
- * one for this platform: the same account can sign in from desktop and from
- * the phone, and a token minted for either is legitimately ours.
- */
-const verifyIdToken = async (idToken, platform) => {
-  const { clientId } = credentialsFor(platform);
-  const audience = allConfiguredClientIds();
-  const ticket = await new OAuth2Client(clientId).verifyIdToken({
-    idToken,
-    audience: audience.length > 0 ? audience : clientId,
-  });
-  const payload = ticket.getPayload();
-  if (!payload || !payload.email) {
-    throw new ApiError(
-      "The Google token carries no email address. The sign-in needs the " +
-        "email scope.",
-      502,
-    );
-  }
-  return {
-    email: payload.email,
-    displayName: payload.name || payload.given_name || null,
-    photoUrl: payload.picture || null,
-    emailVerified: payload.email_verified === true,
-  };
-};
-
-/**
- * Pulls the email out of the id token that came with the exchange, or null.
- *
- * Soft on purpose: the Drive flow reads the profile from the Drive API as a
- * fallback, so a token it cannot verify is not fatal there. The reason is
- * logged rather than dropped, because a silent null here is exactly what
- * makes a failure further up unexplainable.
- */
-const emailFromIdToken = async (idToken, platform) => {
-  if (!idToken) return null;
-  try {
-    return await verifyIdToken(idToken, platform);
-  } catch (error) {
-    console.warn(
-      `Google id token verification failed (${error.message}); ` +
-        `${describeIdToken(idToken)}`,
-    );
-    return null;
-  }
-};
-
 const crypto = require("crypto");
 const { URL, URLSearchParams } = require("url");
 const axios = require("axios");
@@ -515,6 +410,111 @@ const fetchDriveProfile = async (accessToken) => {
     };
   } catch (error) {
     throw asGoogleError(error, "Could not read the Google account");
+  }
+};
+
+/** Every Google client id this deployment knows about. */
+const allConfiguredClientIds = () =>
+  [
+    process.env.GOOGLE_CLIENT_ID_WEB,
+    process.env.GOOGLE_CLIENT_ID_DESKTOP,
+    process.env.GOOGLE_CLIENT_ID_ANDROID,
+    process.env.GOOGLE_CLIENT_ID_IOS,
+    process.env.GOOGLE_CLIENT_ID,
+  ].filter(Boolean);
+
+/**
+ * Reads an id token's claims **without verifying it**.
+ *
+ * Only ever used to explain a verification failure: an audience that belongs
+ * to a different client, or an expiry in the past, are the two usual causes
+ * and both are invisible otherwise. Never use this to establish identity.
+ */
+const peekIdTokenClaims = (idToken) => {
+  try {
+    const segment = String(idToken).split(".")[1];
+    if (!segment) return null;
+    const json = Buffer.from(
+      segment.replace(/-/g, "+").replace(/_/g, "/"),
+      "base64",
+    ).toString("utf8");
+    const claims = JSON.parse(json);
+    return {
+      aud: claims.aud || null,
+      iss: claims.iss || null,
+      exp: claims.exp || null,
+      expired: claims.exp ? claims.exp * 1000 < Date.now() : null,
+      hasEmail: Boolean(claims.email),
+    };
+  } catch {
+    return null;
+  }
+};
+
+/** A one-line summary of why a token looks wrong, for an error message. */
+const describeIdToken = (idToken) => {
+  const claims = peekIdTokenClaims(idToken);
+  if (!claims) return "the token could not be decoded";
+  const parts = [];
+  if (claims.expired) parts.push("it expired");
+  if (!claims.hasEmail) parts.push("it carries no email claim");
+  if (claims.aud && !allConfiguredClientIds().includes(claims.aud)) {
+    parts.push(
+      `its audience (${claims.aud}) is not one of this server's client ids`,
+    );
+  }
+  if (parts.length === 0) return "no obvious problem with its claims";
+  return parts.join(", and ");
+};
+
+/**
+ * Verifies an id token and returns the identity in it, or throws.
+ *
+ * The audience is checked against every configured client id, not just the
+ * one for this platform: the same account can sign in from desktop and from
+ * the phone, and a token minted for either is legitimately ours.
+ */
+const verifyIdToken = async (idToken, platform) => {
+  const { clientId } = credentialsFor(platform);
+  const audience = allConfiguredClientIds();
+  const ticket = await new OAuth2Client(clientId).verifyIdToken({
+    idToken,
+    audience: audience.length > 0 ? audience : clientId,
+  });
+  const payload = ticket.getPayload();
+  if (!payload || !payload.email) {
+    throw new ApiError(
+      "The Google token carries no email address. The sign-in needs the " +
+        "email scope.",
+      502,
+    );
+  }
+  return {
+    email: payload.email,
+    displayName: payload.name || payload.given_name || null,
+    photoUrl: payload.picture || null,
+    emailVerified: payload.email_verified === true,
+  };
+};
+
+/**
+ * Pulls the email out of the id token that came with the exchange, or null.
+ *
+ * Soft on purpose: the Drive flow reads the profile from the Drive API as a
+ * fallback, so a token it cannot verify is not fatal there. The reason is
+ * logged rather than dropped, because a silent null here is exactly what
+ * makes a failure further up unexplainable.
+ */
+const emailFromIdToken = async (idToken, platform) => {
+  if (!idToken) return null;
+  try {
+    return await verifyIdToken(idToken, platform);
+  } catch (error) {
+    console.warn(
+      `Google id token verification failed (${error.message}); ` +
+        `${describeIdToken(idToken)}`,
+    );
+    return null;
   }
 };
 

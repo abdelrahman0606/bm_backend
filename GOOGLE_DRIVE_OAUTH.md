@@ -50,6 +50,43 @@ In the Google console, the desktop client needs no redirect URI registered
 beyond the loopback range Google allows for "Desktop app" clients; the web
 client needs each URI from `GOOGLE_OAUTH_REDIRECT_URIS` registered.
 
+### Scopes, verification, and `403 access_denied`
+
+Google sorts these three scopes differently, and it decides whether consent is
+allowed at all:
+
+| Access level | Scope | Google's class | Verification needed |
+| --- | --- | --- | --- |
+| App files only | `drive.file` | non-sensitive | **no** |
+| Read only | `drive.readonly` | restricted | yes |
+| Full Drive access | `drive` | restricted | yes |
+
+While the OAuth app's publishing status is **Testing**, only accounts on the
+**Test users** list can grant anything, and a *restricted* scope is refused
+outright — Google shows its own "access blocked, app has not completed
+verification" page and returns `403 access_denied`. The app never receives a
+redirect, so there is nothing it can report after the fact; this is why the
+access-level picker warns before opening the browser.
+
+Signing in is unaffected, because it asks only for the identity scopes. That
+asymmetry — login works, connecting Drive does not — is the usual symptom.
+
+To get past it, in order of effort:
+
+1. **Use "App files only".** `drive.file` is non-sensitive, so it needs no
+   verification and works immediately. It sees the files the app creates or
+   the user explicitly opens with it, which is enough for upload, download,
+   organise and delete of this app's own files.
+2. **Add the account to Test users** (consent screen → Audience → Test users).
+   Lets a listed account grant the restricted scopes while still in Testing.
+3. **Submit for verification** if `drive` or `drive.readonly` is needed in
+   production. Google requires a privacy policy, a homepage on a verified
+   domain, and a demo video; a restricted scope also brings a security
+   assessment. Budget weeks, not days.
+
+Also add every Drive scope you intend to request to the consent screen's own
+scope list; requesting one that is not listed is another way to earn a refusal.
+
 ## 2. The flow
 
 A desktop app cannot keep a secret, and Google's answer for installed apps is a
