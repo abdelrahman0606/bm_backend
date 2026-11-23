@@ -19,6 +19,12 @@ const RESOURCE_TYPES = [
   "attendance",
   "file",
   "settings",
+  // Device Control. `device` covers enrollment, status, requests and
+  // exceptions; `devicePolicy` covers authoring and assigning the policies
+  // themselves, so a help-desk role can approve a request without being able
+  // to rewrite the rules everyone is under.
+  "device",
+  "devicePolicy",
 ];
 
 /**

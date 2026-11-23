@@ -3,8 +3,53 @@ const Attendance = require("./attendanceModel");
 const AttendanceQrSession = require("./attendanceQrSessionModel");
 const EmployeeFaceProfile = require("./employeeFaceProfileModel");
 const ApiError = require("../../utils/apiError");
-const { resolveCompanyForUser } = require("../../core/access/companyResolver");
+const User = require("../users/userModel");
+const Company = require("../companies/companyModel");
+const engine = require("../../core/access/permissionEngine");
+const {
+  resolveCompanyForUser,
+  companiesForUser,
+} = require("../../core/access/companyResolver");
 const faceRegistrationService = require("./faceRegistrationService");
+
+/**
+ * Whether `actorId` may read `employeeId`'s attendance.
+ *
+ * Reading somebody else's attendance is reading where they were and when, so
+ * it takes a grant on the company they belong to - `attendance` view or
+ * update - or being that company's creator, or master. A role name is not
+ * enough on its own, which is what the previous check came down to: it read
+ * `req.user.role`, a property nothing ever set, so `employeeId` was silently
+ * ignored and every caller got their own records back.
+ */
+const _mayReadEmployeeAttendance = async (actorId, employeeId) => {
+  if (!actorId) return false;
+  if (String(actorId) === String(employeeId)) return true;
+
+  const actorDoc = await User.findById(actorId).select("role permissions");
+  if (!actorDoc) return false;
+
+  const actor = new engine.Actor({
+    id: String(actorDoc._id),
+    role: actorDoc.role,
+    permissions: actorDoc.permissions || [],
+  });
+  if (actor.isMaster) return true;
+
+  const companies = await companiesForUser(employeeId);
+  for (const companyId of companies) {
+    if (
+      engine.can(actor, "attendance", "view", companyId) ||
+      engine.can(actor, "attendance", "update", companyId)
+    ) {
+      return true;
+    }
+    const company = await Company.findById(companyId).select("createdBy");
+    if (company && String(company.createdBy) === String(actorId)) return true;
+  }
+
+  return false;
+};
 
 /**
  * Refuses a face-verified entry unless the person's registration is approved.
@@ -216,19 +261,30 @@ exports.getTodayAttendance = async (userId) => {
   return attendance ? buildAttendanceResponse(attendance) : null;
 };
 
-exports.getAttendances = async (userId, userRole, query) => {
+/**
+ * One person's attendance records, newest first.
+ *
+ * Always scoped to exactly one employee: the caller, or - with authority over
+ * their company - the employee named by `employeeId`. There is no unscoped
+ * form, because "every attendance row on the deployment" is not a question
+ * any screen asks.
+ */
+exports.getAttendances = async (userId, query) => {
   const q = query || {};
   const { page = 0, limit = 10, type, startDate, endDate, employeeId } = q;
-  
-  // Normal users can only see their own attendance.
-  // Admins/HR could see others (assuming you handle role check before/here).
+
   const filter = {};
-  
-  // Basic role handling: if not an admin role, force userId
-  // Modify according to the exact roles in your system
-  const adminRoles = ["master", "admin", "manager", "hr"]; // adjust based on userModel.js
-  if (adminRoles.includes(userRole)) {
-    if (employeeId) filter.userId = employeeId;
+
+  const asked = employeeId ? String(employeeId).trim() : "";
+  if (asked && asked !== String(userId)) {
+    const allowed = await _mayReadEmployeeAttendance(userId, asked);
+    if (!allowed) {
+      throw new ApiError(
+        "You do not have permission to read this employee's attendance",
+        403
+      );
+    }
+    filter.userId = asked;
   } else {
     filter.userId = userId;
   }

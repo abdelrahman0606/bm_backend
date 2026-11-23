@@ -68,6 +68,19 @@ const validateUserCreate = [
   body("rate").optional().isNumeric().withMessage("rate must be a number"),
 ];
 
+/**
+ * A null that means "this field is empty", not "this field is wrong".
+ *
+ * The client edits a user by sending the whole user back, and `address`,
+ * `bio` and `employeeType` are all nullable in the schema - so somebody with
+ * no address round-trips `address: null`. Plain `.optional()` skips only
+ * `undefined`, so those nulls were validated as a string and an enum and the
+ * edit was refused with "address must be a string": an update that changed
+ * neither field could not be saved at all, which is what a permissions-only
+ * save ran into.
+ */
+const NULLABLE = { values: "null" };
+
 const validateUserUpdate = [
   body("fullName")
     .optional()
@@ -79,7 +92,7 @@ const validateUserUpdate = [
     .isMobilePhone()
     .withMessage("Please provide a valid phone number"),
   body("bio")
-    .optional()
+    .optional(NULLABLE)
     .trim()
     .isLength({ max: 500 })
     .withMessage("Bio must be less than 500 characters"),
@@ -110,10 +123,13 @@ const validateUserUpdate = [
     .optional()
     .isISO8601()
     .withMessage("birthday must be a valid date"),
-  body("address").optional().isString().withMessage("address must be a string"),
+  body("address")
+    .optional(NULLABLE)
+    .isString()
+    .withMessage("address must be a string"),
   body("relation").optional().isString(),
   body("employeeType")
-    .optional()
+    .optional(NULLABLE)
     .isIn([
       "internalEmployee",
       "remotelyPartTime",

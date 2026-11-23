@@ -1,5 +1,6 @@
 const mongoose = require("mongoose");
 const FaceRegistration = require("./faceRegistrationModel");
+const EmployeeFaceProfile = require("./employeeFaceProfileModel");
 const User = require("../users/userModel");
 const Company = require("../companies/companyModel");
 const ApiError = require("../../utils/apiError");
@@ -367,6 +368,148 @@ exports.decide = async (approverId, registrationId, data = {}) => {
   }
 
   return { registration: buildRegistrationResponse(doc), notified };
+};
+
+/**
+ * Where one employee's registration stands, read by an approver.
+ *
+ * The counterpart of [exports.getMyStatus] for somebody else's record, so a
+ * member page can show where that person is without pulling the whole queue
+ * and searching it client-side. The company is resolved from the approver's
+ * own authority first, so this cannot be used to read another company's
+ * records by naming a user in it.
+ *
+ * A user who never applied has no record, and gets `notRegistered` - the
+ * state with the fewest privileges - rather than a 404: "nothing submitted"
+ * is an answer, not a missing page.
+ */
+exports.getStatusForUser = async (
+  approverId,
+  targetUserId,
+  claimedCompanyId = null
+) => {
+  if (!_isId(targetUserId)) {
+    throw new ApiError("User not found", 404);
+  }
+
+  const companyId = await _resolveApproverCompany(approverId, claimedCompanyId);
+
+  const doc = await FaceRegistration.findOne({
+    userId: targetUserId,
+    companyId,
+  }).populate("userId", "fullName email photo");
+
+  const profile = await EmployeeFaceProfile.findOne({
+    userId: targetUserId,
+  }).select("_id updatedAt modelVersion");
+
+  return {
+    ...buildRegistrationResponse(doc, { includeUser: true }),
+    userId: String(targetUserId),
+    companyId: String(companyId),
+    // Whether an embedding is actually stored, which is a different question
+    // from whether the request was approved: a revoked face leaves the
+    // decision in the record and takes the biometric away.
+    hasFaceProfile: Boolean(profile),
+    faceProfileUpdatedAt: profile ? profile.updatedAt : null,
+  };
+};
+
+/**
+ * Removes an employee's stored face and closes face attendance for them.
+ *
+ * Two things happen, and both are the point: the embedding is deleted, so
+ * nothing of their biometric is kept, and the decision is moved off
+ * `approved`, so face-verified attendance stops being accepted. The record
+ * is kept and the reason is pushed onto its history rather than deleting the
+ * row - who removed a biometric, and when, is exactly the thing an audit
+ * needs, and `rejected` is a state they can re-apply from.
+ *
+ * Revoking your own face is allowed: unlike approving your own request, it
+ * only ever takes a privilege away.
+ */
+exports.revokeForUser = async (approverId, targetUserId, data = {}) => {
+  const {
+    reason = null,
+    companyId: claimedCompanyId = null,
+    withNotify = true,
+  } = data;
+
+  if (!_isId(targetUserId)) {
+    throw new ApiError("User not found", 404);
+  }
+
+  const companyId = await _resolveApproverCompany(approverId, claimedCompanyId);
+
+  const trimmedReason =
+    typeof reason === "string" && reason.trim()
+      ? reason.trim()
+      : "Face removed by an approver";
+
+  const removedProfile = await EmployeeFaceProfile.findOneAndDelete({
+    userId: targetUserId,
+  });
+
+  const decidedAt = new Date();
+  const doc = await FaceRegistration.findOneAndUpdate(
+    { userId: targetUserId, companyId },
+    {
+      $set: {
+        status: "rejected",
+        decidedBy: approverId,
+        decidedAt,
+        rejectionReason: trimmedReason,
+        photo: null,
+      },
+      $push: {
+        history: {
+          status: "rejected",
+          decidedBy: approverId,
+          decidedAt,
+          reason: trimmedReason,
+        },
+      },
+    },
+    { new: true }
+  );
+
+  // Nothing to revoke at all - no embedding and no record - is told apart
+  // from a successful removal, so a caller is not shown "removed" for a
+  // person who never had a face stored.
+  if (!doc && !removedProfile) {
+    throw new ApiError("This user has no registered face", 404);
+  }
+
+  let notified = null;
+  if (withNotify) {
+    notified = await notifier.notifyUser({
+      companyId: String(companyId),
+      userId: String(targetUserId),
+      type: NotificationType.FACE_REGISTRATION_REJECTED,
+      title: "Face registration removed",
+      body: `Your registered face was removed: ${trimmedReason}`,
+      priority: "high",
+      createdBy: String(approverId),
+      notificationAction: {
+        type: "face_registration",
+        entityId: doc ? String(doc._id) : String(targetUserId),
+        route: "/attendance",
+      },
+      metadata: {
+        status: "rejected",
+        companyId: String(companyId),
+        faceProfileRemoved: Boolean(removedProfile),
+      },
+    });
+  }
+
+  return {
+    registration: doc
+      ? buildRegistrationResponse(doc)
+      : { status: "notRegistered", userId: String(targetUserId), companyId: String(companyId) },
+    faceProfileRemoved: Boolean(removedProfile),
+    notified,
+  };
 };
 
 /**

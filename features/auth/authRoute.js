@@ -15,6 +15,8 @@ const {
 const {
   validatorMiddleware,
 } = require("../../middlewares/validatorMiddleware");
+const googleAccountRoute = require("./googleAccountRoute");
+const googleLoginRoute = require("./googleLoginRoute");
 
 const { verifyAuthToken } = require("../../middlewares/authMiddleware");
 // Register
@@ -87,6 +89,20 @@ router.post(
     }
   },
 );
+
+// Server-side Google consent for *signing in*. Public, because nobody is
+// signed in yet, and mounted BEFORE the authenticated `/google` sub-router
+// below so these paths are not swallowed by its token guard. It hands back a
+// verified id token, which the client posts to `POST /google` above.
+router.use("/google/login", googleLoginRoute);
+
+// Google Drive accounts and the server-side OAuth flow for them.
+//
+// Mounted after the `POST /google` login above, so that exact route keeps its
+// own handler; this sub-router serves `/google/oauth/...` and
+// `/google/accounts/...`. It is the OAuth client secret's only home — the
+// desktop and web apps no longer carry one.
+router.use("/google", googleAccountRoute);
 
 // Verify Token and Get User By Token
 // Postman: POST /auth/verify

@@ -45,7 +45,7 @@ router.post(
 // Get all users
 router.get("/", async (req, res, next) => {
   try {
-    const result = await userService.getAllUsers(req.query);
+    const result = await userService.getAllUsers(req.query, actorOf(req));
     res.status(200).json({
       success: true,
       data: result.users,

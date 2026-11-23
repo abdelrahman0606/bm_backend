@@ -5,6 +5,11 @@ const {
   assertMemberWriteAllowed,
 } = require("../../core/access/userWriteGuard");
 const engine = require("../../core/access/permissionEngine");
+const {
+  companyMembersFilter,
+  mayListCompanyMembers,
+  visibleUsersFilter,
+} = require("../companies/companyMembers");
 
 const buildUserResponse = async (user) => ({
     _id: user._id,
@@ -68,8 +73,21 @@ exports.getUserByEmail = async (email) => {
   return buildUserResponse(user);
 };
 
-exports.getAllUsers = async (query = {}) => {
-  const { page = 0, limit = 10, role, status, search } = query;
+/**
+ * The user directory, narrowed to what the caller may read.
+ *
+ * `companyId` asks for one company's members, and is honoured only for a
+ * caller who belongs to that company — a master, its owner, an invited
+ * employee, or somebody holding a grant naming it. Without `companyId` the
+ * answer is the whole deployment for a master, and the caller's own companies
+ * for everybody else: the listing used to ignore both the parameter and the
+ * caller, so any account with a token could read every user of every company.
+ *
+ * `actor` left out keeps the old unnarrowed behaviour, for internal callers
+ * that are not acting for a request.
+ */
+exports.getAllUsers = async (query = {}, actor = null) => {
+  const { page = 0, limit = 10, role, status, search, companyId } = query;
 
   const filter = {};
 
@@ -86,11 +104,42 @@ exports.getAllUsers = async (query = {}) => {
     filter.status = status;
   }
 
+  // The company scope and the search are both `$or`s, so they are composed
+  // under `$and`: assigning either one to `filter.$or` would silently drop
+  // the other.
+  const conditions = [];
+
   if (search) {
-    filter.$or = [
-      { email: { $regex: search, $options: "i" } },
-      { fullName: { $regex: search, $options: "i" } },
-    ];
+    conditions.push({
+      $or: [
+        { email: { $regex: search, $options: "i" } },
+        { fullName: { $regex: search, $options: "i" } },
+      ],
+    });
+  }
+
+  // `companyId` was accepted and ignored before this, so every company's
+  // member list showed every account on the deployment.
+  const askedCompanyId = String(companyId || "").trim();
+  if (askedCompanyId !== "") {
+    if (actor && !(await mayListCompanyMembers(actor, askedCompanyId))) {
+      // Refused rather than answered with their own company's members: a
+      // request naming a company they are not in is one we do not
+      // understand, and quietly swapping it would hide the mistake.
+      throw new ApiError("You do not have access to this company", 403);
+    }
+    conditions.push(await companyMembersFilter(askedCompanyId));
+  }
+
+  // And whatever the caller may see at all, so an unscoped listing is their
+  // own companies rather than the whole deployment.
+  if (actor) {
+    const visible = await visibleUsersFilter(actor);
+    if (visible) conditions.push(visible);
+  }
+
+  if (conditions.length > 0) {
+    filter.$and = conditions;
   }
 
   const skip = page * limit;

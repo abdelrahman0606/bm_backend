@@ -27,6 +27,10 @@ const { Server } = require("socket.io");
 const socketManager = require("./infrastructure/realtime/socketManager");
 const { authenticateSocket } = require("./infrastructure/realtime/socketAuth");
 const SocketGateway = require("./infrastructure/realtime/socketGateway");
+const {
+  createEventDispatcher,
+  setEventDispatcher,
+} = require("./core/events/eventDispatcher");
 
 const morgan = require("morgan");
 const {
@@ -71,6 +75,10 @@ const timeManagementSharingRoute = require("./features/time_management_sharing/t
 const timeManagementShareScheduler = require("./features/time_management_sharing/timeManagementShareScheduler");
 const timeManagementPublicRoute = require("./features/time_management_sharing/timeManagementPublicRoute");
 const timeManagementUsageRoute = require("./features/time_management_sharing/timeManagementDeviceUsageRoute");
+// Device Control: the console/employee API, and the agent API the Windows
+// service talks to with its own device token.
+const deviceControlRoute = require("./features/device_control/deviceControlRoute");
+const deviceAgentRoute = require("./features/device_control/deviceAgentRoute");
 
 const ApiError = require("./utils/apiError");
 const globalError = require("./middlewares/errorMiddleware");
@@ -115,6 +123,12 @@ app.use("/api/v1/time-management-usage", timeManagementUsageRoute);
 // the credential, resolved server-side).
 app.use("/api/v1/public/time-reports", timeManagementPublicRoute);
 
+// Device Control. The agent routes are mounted separately because they
+// authenticate a device, not a user, and must never sit behind the user
+// token middleware.
+app.use("/api/v1/device-control", deviceControlRoute);
+app.use("/api/v1/device-agent", deviceAgentRoute);
+
 app.use((req, res, next) =>
   next(new ApiError(`Can't find this route: ${req.originalUrl}`, 400)),
 );
@@ -145,6 +159,13 @@ io.on("connection", (socket) => {
 
 const socketGateway = new SocketGateway(io, socketManager);
 global.socketGateway = socketGateway;
+
+// The event dispatcher wraps the same gateway and is what features publish
+// through: it stamps each event with an id, a type, an action, a version and
+// a timestamp, which is the envelope the Flutter clients parse. Until this
+// call it is the no-op dispatcher created in core/events/eventDispatcher, so
+// anything published before now is silently dropped.
+setEventDispatcher(createEventDispatcher(socketGateway));
 
 let server = null;
 

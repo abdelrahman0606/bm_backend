@@ -39,6 +39,11 @@ const getGoogleClientId = (platform) => {
 
 // Multi-strategy verification for Google Token (ID Token or Access Token)
 const verifyGoogleToken = async (tokenInput, platform = "web") => {
+  // Why each strategy gave up. Without this the only thing a failure can say
+  // is "Invalid Google token", which is true but useless: the usual causes
+  // are an audience from a different client id and an expired token, and
+  // neither is visible from the outside.
+  const reasons = [];
   const clientIds = [
     process.env.GOOGLE_CLIENT_ID_WEB,
     process.env.GOOGLE_CLIENT_ID_DESKTOP,
@@ -81,6 +86,7 @@ const verifyGoogleToken = async (tokenInput, platform = "web") => {
       };
     }
   } catch (error) {
+    reasons.push(`id token verification: ${error.message}`);
     // Continue to REST API fallbacks
   }
 
@@ -100,6 +106,7 @@ const verifyGoogleToken = async (tokenInput, platform = "web") => {
       };
     }
   } catch (error) {
+    reasons.push(`tokeninfo: ${error.response?.data?.error_description || error.message}`);
     // Continue to next fallback
   }
 
@@ -122,6 +129,7 @@ const verifyGoogleToken = async (tokenInput, platform = "web") => {
       };
     }
   } catch (error) {
+    reasons.push(`userinfo: ${error.response?.data?.error_description || error.message}`);
     // Continue to legacy fallback
   }
 
@@ -141,10 +149,13 @@ const verifyGoogleToken = async (tokenInput, platform = "web") => {
       };
     }
   } catch (error) {
-    // All fallbacks failed
+    reasons.push(`legacy userinfo: ${error.message}`);
   }
 
-  throw new ApiError("Invalid Google token", 401);
+  throw new ApiError(
+    `Invalid Google token. ${reasons.join("; ")}`.trim(),
+    401,
+  );
 };
 
 // Generate JWT Token
@@ -294,6 +305,8 @@ exports.login = async (email, password) => {
     refreshToken,
   };
 };
+
+exports.verifyGoogleToken = verifyGoogleToken;
 
 exports.googleAuth = async (idToken, platform = "web", authType, invitationCode) => {
   const payload = await verifyGoogleToken(idToken, platform);

@@ -21,6 +21,7 @@ const REQUEST_ID = "6a900000067c36176e40aa99";
 /** The fake store the fake model reads and writes. */
 const store = {
   registrations: [],
+  faceProfiles: [],
   users: {},
   companies: {},
   notifications: [],
@@ -30,6 +31,7 @@ const store = {
 
 const reset = () => {
   store.registrations = [];
+  store.faceProfiles = [];
   store.users = {};
   store.companies = {};
   store.notifications = [];
@@ -59,15 +61,25 @@ const clone = (doc) => JSON.parse(JSON.stringify(doc));
 
 /** Just enough of a mongoose model for the service's queries. */
 const fakeRegistrationModel = {
-  async findOne(filter) {
-    return (
+  // Awaitable, and `.populate()`-able: the per-user read asks for the
+  // applicant's name, the way the queue does.
+  findOne(filter) {
+    const doc =
       store.registrations.find(
-        (doc) =>
-          (!filter.userId || String(doc.userId) === String(filter.userId)) &&
+        (candidate) =>
+          (!filter.userId ||
+            String(candidate.userId) === String(filter.userId)) &&
           (!filter.companyId ||
-            String(doc.companyId) === String(filter.companyId))
-      ) || null
-    );
+            String(candidate.companyId) === String(filter.companyId))
+      ) || null;
+
+    const chain = {
+      populate: () => chain,
+      select: () => chain,
+      then: (resolve_, reject_) => Promise.resolve(doc).then(resolve_, reject_),
+      catch: (reject_) => Promise.resolve(doc).catch(reject_),
+    };
+    return chain;
   },
 
   async findById(id) {
@@ -105,7 +117,12 @@ const fakeRegistrationModel = {
   async findOneAndUpdate(filter, update) {
     const doc = store.registrations.find(
       (candidate) =>
-        String(candidate._id) === String(filter._id) &&
+        (filter._id === undefined ||
+          String(candidate._id) === String(filter._id)) &&
+        (filter.userId === undefined ||
+          String(candidate.userId) === String(filter.userId)) &&
+        (filter.companyId === undefined ||
+          String(candidate.companyId) === String(filter.companyId)) &&
         (!filter.status || candidate.status === filter.status)
     );
     if (!doc) return null;
@@ -180,7 +197,26 @@ const fakeCompanyModel = {
   },
 };
 
+/** The stored embedding, which revoking has to actually delete. */
+const fakeFaceProfileModel = {
+  findOne(filter) {
+    return selectable(
+      store.faceProfiles.find(
+        (profile) => String(profile.userId) === String(filter.userId)
+      ) || null
+    );
+  },
+  async findOneAndDelete(filter) {
+    const index = store.faceProfiles.findIndex(
+      (profile) => String(profile.userId) === String(filter.userId)
+    );
+    if (index < 0) return null;
+    return store.faceProfiles.splice(index, 1)[0];
+  },
+};
+
 define("./faceRegistrationModel", fakeRegistrationModel);
+define("./employeeFaceProfileModel", fakeFaceProfileModel);
 define("../users/userModel", fakeUserModel);
 define("../companies/companyModel", fakeCompanyModel);
 define("../../core/access/companyResolver", {
@@ -645,4 +681,109 @@ test("an approval in one company does not carry to another", async () => {
   const other = await service.faceVerificationAllowed(APPLICANT, COMPANY_B);
   assert.equal(other.allowed, false);
   assert.equal(other.status, "notRegistered");
+});
+
+// ---------------------------------------------------------------------------
+// One employee's record, read and revoked from their member page
+// ---------------------------------------------------------------------------
+
+const withFaceProfile = (userId) => {
+  const profile = {
+    _id: `profile-${userId}`,
+    userId,
+    embedding: [0.1, 0.2],
+    modelVersion: "1.0",
+    updatedAt: new Date(),
+  };
+  store.faceProfiles.push(profile);
+  return profile;
+};
+
+const withApprover = () => {
+  withUser(APPROVER, "admin", [grant("attendance", COMPANY_A, ["update"])]);
+};
+
+test("an approver reads one employee's status", async () => {
+  withApprover();
+  withPendingRequest();
+  withFaceProfile(APPLICANT);
+
+  const status = await service.getStatusForUser(APPROVER, APPLICANT);
+
+  assert.equal(status.status, "pending");
+  assert.equal(status.userId, APPLICANT);
+  assert.equal(status.companyId, COMPANY_A);
+  assert.equal(status.hasFaceProfile, true);
+});
+
+test("an employee who never applied reads as notRegistered, not an error", async () => {
+  withApprover();
+
+  const status = await service.getStatusForUser(APPROVER, APPLICANT);
+
+  assert.equal(status.status, "notRegistered");
+  assert.equal(status.hasFaceProfile, false);
+});
+
+test("somebody with no authority over the company cannot read a status", async () => {
+  withUser(OUTSIDER, "junior");
+  withPendingRequest();
+
+  await assert.rejects(
+    () => service.getStatusForUser(OUTSIDER, APPLICANT),
+    (error) => error.statusCode === 403 || error.status === 403
+  );
+});
+
+test("revoking deletes the embedding and closes face attendance", async () => {
+  withApprover();
+  withPendingRequest({ status: "approved" });
+  withFaceProfile(APPLICANT);
+
+  const result = await service.revokeForUser(APPROVER, APPLICANT, {
+    reason: "Left the company",
+  });
+
+  assert.equal(result.faceProfileRemoved, true);
+  assert.equal(store.faceProfiles.length, 0);
+  assert.equal(result.registration.status, "rejected");
+  assert.equal(result.registration.rejectionReason, "Left the company");
+
+  // Face-verified attendance must stop being accepted.
+  const allowed = await service.faceVerificationAllowed(APPLICANT, COMPANY_A);
+  assert.equal(allowed.allowed, false);
+});
+
+test("revoking keeps the audit trail rather than deleting the record", async () => {
+  withApprover();
+  const doc = withPendingRequest({ status: "approved" });
+  withFaceProfile(APPLICANT);
+
+  await service.revokeForUser(APPROVER, APPLICANT, { reason: "Lost device" });
+
+  assert.equal(store.registrations.length, 1);
+  assert.equal(doc.history.length, 1);
+  assert.equal(String(doc.history[0].decidedBy), APPROVER);
+  assert.equal(doc.history[0].reason, "Lost device");
+});
+
+test("revoking a user who has no face at all is refused", async () => {
+  withApprover();
+
+  await assert.rejects(
+    () => service.revokeForUser(APPROVER, APPLICANT, {}),
+    (error) => error.statusCode === 404 || error.status === 404
+  );
+});
+
+test("an outsider cannot revoke somebody's face", async () => {
+  withUser(OUTSIDER, "junior");
+  withPendingRequest({ status: "approved" });
+  withFaceProfile(APPLICANT);
+
+  await assert.rejects(
+    () => service.revokeForUser(OUTSIDER, APPLICANT, {}),
+    (error) => error.statusCode === 403 || error.status === 403
+  );
+  assert.equal(store.faceProfiles.length, 1, "nothing may be deleted");
 });

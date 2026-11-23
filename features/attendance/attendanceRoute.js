@@ -72,13 +72,16 @@ router.get("/today", async (req, res, next) => {
   }
 });
 
-// Get all attendances (with pagination and filtering)
+// Get all attendances (with pagination and filtering).
+//
+// `employeeId` reads somebody else's records, and the service authorizes it
+// against the caller's grants on that employee's company.
 router.get("/", async (req, res, next) => {
   try {
-    // Assuming req.user is populated by verifyAuthToken, you can pass the role
-    const userRole = req.user ? req.user.role : "employee";
-    
-    const result = await attendanceService.getAttendances(req.userId, userRole, req.query);
+    const result = await attendanceService.getAttendances(
+      req.userId,
+      req.query
+    );
     res.status(200).json({
       success: true,
       data: result.attendances,
@@ -237,5 +240,49 @@ router.patch(
     }
   }
 );
+
+// --------------------------------------------------------------------------
+// One employee's face registration, read and revoked by an approver.
+//
+// The member page needs both: where this person stands, and a way to take a
+// stored face away again. Authority is the same as the queue's - a grant on
+// the company, its creator, or master - and it is checked in the service.
+// --------------------------------------------------------------------------
+
+router.get("/face-registration/user/:userId", async (req, res, next) => {
+  try {
+    const status = await faceRegistrationService.getStatusForUser(
+      req.userId,
+      req.params.userId,
+      req.query.companyId
+    );
+    res.status(200).json({
+      success: true,
+      data: status,
+      message: "Face registration status fetched successfully",
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.delete("/face-registration/user/:userId", async (req, res, next) => {
+  try {
+    const result = await faceRegistrationService.revokeForUser(
+      req.userId,
+      req.params.userId,
+      { ...req.body, companyId: req.body?.companyId ?? req.query.companyId }
+    );
+    res.status(200).json({
+      success: true,
+      data: result.registration,
+      faceProfileRemoved: result.faceProfileRemoved,
+      notified: result.notified,
+      message: "Registered face removed",
+    });
+  } catch (error) {
+    next(error);
+  }
+});
 
 module.exports = router;
