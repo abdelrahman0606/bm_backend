@@ -55,6 +55,14 @@ require("./features/time_management_sharing/timeManagementShareDeliveryModel");
 require("./features/time_management_sharing/timeManagementShareLinkModel");
 require("./features/time_management_sharing/timeManagementDeviceUsageModel");
 require("./features/time_management_sharing/timeManagementDeviceSyncBatchModel");
+// Gmail Models
+require("./features/gmail/gmailAccountModel");
+require("./features/gmail/gmailMessageModel");
+require("./features/gmail/gmailThreadModel");
+require("./features/gmail/gmailLabelModel");
+require("./features/gmail/gmailDraftModel");
+require("./features/gmail/gmailOperationLogModel");
+require("./features/gmail/gmailPushNotificationModel");
 const {
   prepareTimeManagementCollections,
 } = require("./features/time_management_sharing/timeManagementCollections");
@@ -79,6 +87,11 @@ const timeManagementUsageRoute = require("./features/time_management_sharing/tim
 // service talks to with its own device token.
 const deviceControlRoute = require("./features/device_control/deviceControlRoute");
 const deviceAgentRoute = require("./features/device_control/deviceAgentRoute");
+// Gmail: the user API, the Pub/Sub push endpoint, and the worker that keeps
+// mailboxes synced whether or not a client is connected.
+const gmailRoute = require("./features/gmail/gmailRoute");
+const gmailPushRoute = require("./features/gmail/gmailPushRoute");
+const gmailScheduler = require("./features/gmail/gmailScheduler");
 
 const ApiError = require("./utils/apiError");
 const globalError = require("./middlewares/errorMiddleware");
@@ -128,6 +141,12 @@ app.use("/api/v1/public/time-reports", timeManagementPublicRoute);
 // token middleware.
 app.use("/api/v1/device-control", deviceControlRoute);
 app.use("/api/v1/device-agent", deviceAgentRoute);
+
+// Gmail. The push endpoint is mounted separately because it authenticates a
+// Google service account rather than a user, and must never sit behind the
+// user token middleware.
+app.use("/api/v1/gmail", gmailRoute);
+app.use("/api/v1/gmail-push", gmailPushRoute);
 
 app.use((req, res, next) =>
   next(new ApiError(`Can't find this route: ${req.originalUrl}`, 400)),
@@ -188,6 +207,12 @@ const start = async () => {
 
   // Deliver automatic Share Time configurations on their saved schedule.
   timeManagementShareScheduler.start();
+
+  // Keep connected Gmail mailboxes in step with Gmail: applies what push
+  // notifications queued, renews the watches Google expires every seven
+  // days, and sweeps anything a crashed worker left claimed. This is what
+  // makes mail arrive while no client is open.
+  gmailScheduler.start();
 };
 
 start().catch((err) => {
@@ -206,6 +231,7 @@ const shutdown = async (signal) => {
   console.log(`${signal} received, shutting down......`);
 
   timeManagementShareScheduler.stop();
+  gmailScheduler.stop();
 
   if (server) {
     await new Promise((resolve) => {

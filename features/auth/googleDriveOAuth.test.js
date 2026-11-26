@@ -43,12 +43,18 @@ test("every access level maps to exactly one Drive scope", () => {
 
   ACCESS_LEVELS.forEach((level) => {
     const scopes = googleOAuth.scopesForLevel(level);
+    // Exactly one scope, and it is the Drive one. Combining a restricted
+    // Drive scope with the identity scopes in a single consent request is
+    // what Google refuses; a working build of this flow sends the Drive
+    // scope alone, and the email comes from Drive's own about.get.
+    assert.strictEqual(scopes.length, 1, `${level} should ask for one scope`);
+    assert.ok(scopes[0].includes("/auth/drive"));
     googleOAuth.IDENTITY_SCOPES.forEach((identity) => {
-      assert.ok(scopes.includes(identity), `${level} is missing ${identity}`);
+      assert.ok(
+        !scopes.includes(identity),
+        `${level} must not combine ${identity} with a Drive scope`,
+      );
     });
-    // One Drive scope, never two.
-    const driveScopes = scopes.filter((scope) => scope.includes("/auth/drive"));
-    assert.strictEqual(driveScopes.length, 1);
   });
 });
 
@@ -187,7 +193,11 @@ test("the consent URL asks for offline access, so a refresh token comes back", (
     parsed.searchParams.get("login_hint"),
     "someone@example.com",
   );
-  assert.match(parsed.searchParams.get("scope"), /auth\/drive$/);
+  // The Drive scope alone: no identity scopes riding along.
+  assert.strictEqual(
+    parsed.searchParams.get("scope"),
+    "https://www.googleapis.com/auth/drive",
+  );
 });
 
 test("the web consent URL uses the web client", () => {
@@ -707,4 +717,116 @@ test("a garbage token says so rather than inventing a reason", () => {
     googleOAuth.describeIdToken("not-a-token"),
     /could not be decoded/,
   );
+});
+
+// ── desktop Google Picker (trigger_onepick) ────────────────────────────────
+// Google runs the picker itself in the system browser as part of consent and
+// appends the chosen ids to the redirect, so this needs no page, API key or
+// JavaScript of ours. Its rules differ from an ordinary Drive connection.
+
+test("the picker URL carries the documented parameters", () => {
+  const { url, scopes } = googleOAuth.buildConsentUrl({
+    platform: "windows",
+    redirectUri: "http://127.0.0.1:53682",
+    state: "S",
+    codeChallenge: "C",
+    onePick: { allowMultiple: true, allowFolderSelection: true },
+  });
+
+  const p = new URL(url).searchParams;
+  assert.strictEqual(p.get("trigger_onepick"), "true");
+  assert.strictEqual(p.get("allow_multiple"), "true");
+  assert.strictEqual(p.get("allow_folder_selection"), "true");
+  assert.strictEqual(p.get("response_type"), "code");
+  assert.strictEqual(p.get("access_type"), "offline");
+  // The flow requires exactly `consent`, not `consent select_account`.
+  assert.strictEqual(p.get("prompt"), "consent");
+  assert.deepStrictEqual(scopes, [
+    "https://www.googleapis.com/auth/drive.file",
+  ]);
+});
+
+test("the picker never asks for more than drive.file", () => {
+  // "only the drive.file scope is permitted for these apps and it can't be
+  // combined with any other scope" — so even a full-access request must come
+  // back narrowed rather than silently widened.
+  const { url, scopes } = googleOAuth.buildConsentUrl({
+    accessLevel: "full",
+    platform: "windows",
+    redirectUri: "http://127.0.0.1:53682",
+    state: "S",
+    codeChallenge: "C",
+    onePick: {},
+  });
+  assert.deepStrictEqual(scopes, [
+    "https://www.googleapis.com/auth/drive.file",
+  ]);
+  assert.strictEqual(
+    new URL(url).searchParams.get("scope"),
+    "https://www.googleapis.com/auth/drive.file",
+  );
+});
+
+test("the picker does not request incremental authorization", () => {
+  // include_granted_scopes would widen the grant beyond drive.file, which is
+  // the one thing this flow forbids.
+  const { url } = googleOAuth.buildConsentUrl({
+    platform: "windows",
+    redirectUri: "http://127.0.0.1:53682",
+    state: "S",
+    codeChallenge: "C",
+    onePick: {},
+  });
+  assert.strictEqual(
+    new URL(url).searchParams.get("include_granted_scopes"),
+    null,
+  );
+});
+
+test("optional picker filters are only sent when given", () => {
+  const bare = new URL(
+    googleOAuth.buildConsentUrl({
+      platform: "windows",
+      redirectUri: "http://127.0.0.1:53682",
+      state: "S",
+      codeChallenge: "C",
+      onePick: { allowMultiple: false, allowFolderSelection: false },
+    }).url,
+  ).searchParams;
+  assert.strictEqual(bare.get("allow_multiple"), null);
+  assert.strictEqual(bare.get("allow_folder_selection"), null);
+  assert.strictEqual(bare.get("mimetypes"), null);
+  assert.strictEqual(bare.get("file_ids"), null);
+
+  const filtered = new URL(
+    googleOAuth.buildConsentUrl({
+      platform: "windows",
+      redirectUri: "http://127.0.0.1:53682",
+      state: "S",
+      codeChallenge: "C",
+      onePick: { mimeTypes: ["image/png", "application/pdf"] },
+    }).url,
+  ).searchParams;
+  assert.strictEqual(filtered.get("mimetypes"), "image/png,application/pdf");
+});
+
+test("a picker flow is stored as a drive flow at the app-only level", async () => {
+  const saved = [];
+  await googleOAuth.startPickerConsent({
+    platform: "windows",
+    redirectUri: "http://127.0.0.1:53682",
+    userId: "user-1",
+    store: {
+      create: async (doc) => {
+        saved.push(doc);
+        return doc;
+      },
+    },
+  });
+
+  assert.strictEqual(saved[0].purpose, "drive");
+  assert.strictEqual(saved[0].accessLevel, "appOnly");
+  assert.deepStrictEqual(saved[0].scopes, [
+    "https://www.googleapis.com/auth/drive.file",
+  ]);
 });

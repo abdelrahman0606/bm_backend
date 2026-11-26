@@ -306,3 +306,36 @@ rather than opening a consent screen whose redirect goes nowhere. Android and
 iOS would use `google_sign_in` with `forceCodeForRefreshToken` and send the
 resulting `serverAuthCode` to a new endpoint that exchanges it with the web
 client secret.
+
+## Shared with the Gmail integration
+
+`features/gmail` reuses this OAuth implementation rather than repeating it:
+`googleOAuthService` builds its consent URLs, holds its PKCE verifiers,
+exchanges its codes and refreshes its tokens, with Gmail passing its own
+scopes through the existing `scopes` override.
+
+Two additive changes were made here for it, and nothing in the Drive flow was
+refactored:
+
+- `googleOAuthRequestModel.js` — `"gmail"` added to the `purpose` enum;
+- `core/events/eventTypes.js` — a `GMAIL` event type.
+
+`purpose` is what keeps the two grants apart. A state issued for Gmail cannot
+be redeemed by `POST /auth/google/oauth/exchange`, and a Drive state cannot be
+redeemed by the Gmail exchange — each checks its own purpose and refuses the
+other. A Gmail grant carries mail scopes, so either endpoint being able to
+spend the other's state would mean a flow the user approved for one thing
+being used for another.
+
+Connected accounts stay in separate collections (`GoogleAccount` for Drive,
+`GmailAccount` for mail): a Drive row carries a storage quota and a root
+folder, a Gmail row a history cursor and a Pub/Sub watch, and the same Google
+account may be connected to both at different permission levels.
+
+One difference worth knowing: Gmail seals its refresh tokens with AES-256-GCM
+(`core/security/secretBox`, keyed by `GOOGLE_TOKEN_ENCRYPTION_KEY`) before
+storing them, while the Drive rows here are `select: false` plaintext. The
+cipher module is generic and could seal these too; doing so needs a migration
+over live rows, so it is noted as a follow-up rather than done silently.
+
+See `features/gmail/README.md`.

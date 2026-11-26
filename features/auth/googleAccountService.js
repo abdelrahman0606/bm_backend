@@ -136,6 +136,36 @@ exports.startConsent = async (
 };
 
 /**
+ * Starts the desktop Google Picker.
+ *
+ * Google runs the picker in the system browser as part of consent and appends
+ * the chosen file ids to the redirect, so this needs no page or API key of
+ * our own. The scope is `drive.file`, which is non-sensitive — this is how
+ * the user reaches files that already exist in their Drive while the app is
+ * still unverified.
+ */
+exports.startPicker = async (
+  userId,
+  { platform, redirectUri, accountId, allowMultiple, allowFolderSelection, mimeTypes },
+) => {
+  if (accountId) {
+    // Proves the account belongs to this user before its id is recorded.
+    await exports.getAccount(userId, accountId);
+  }
+
+  return googleOAuth.startPickerConsent({
+    platform,
+    redirectUri,
+    userId,
+    accountId: accountId || null,
+    allowMultiple,
+    allowFolderSelection,
+    mimeTypes,
+    store: GoogleOAuthRequest,
+  });
+};
+
+/**
  * Finishes a consent flow: trades the code for tokens and saves the account.
  *
  * The flow is looked up by its own `state`, which also proves it belongs to

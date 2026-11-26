@@ -38,8 +38,17 @@ const scopesForLevel = (accessLevel) => {
       400,
     );
   }
-  return [...IDENTITY_SCOPES, driveScope];
+  // The Drive scope on its own, with no identity scopes alongside it.
+  //
+  // Asking for `openid email profile` together with a restricted Drive scope
+  // makes one consent request span two very different trust levels, and
+  // Google is measurably stricter about it — a working build of this flow in
+  // another app of ours sends the single Drive scope and nothing else. The
+  // account's email and name come from Drive's own `about.get` instead, which
+  // every Drive scope permits, so nothing is lost by dropping them.
+  return [driveScope];
 };
+
 
 /** Recovers the level from granted scopes, which is what we trust. */
 const levelFromScopes = (scopes = []) => {
@@ -195,6 +204,35 @@ const assertRedirectAllowed = (redirectUri, isDesktop) => {
  * to re-consent constantly. `select_account` lets a second account be added
  * while the first is still signed in.
  */
+/**
+ * Query parameters that turn an ordinary authorization request into the
+ * desktop Google Picker.
+ *
+ * Google runs the picker itself, in the system browser, as part of consent,
+ * and appends `picked_file_ids` to the redirect. That is why this needs no
+ * JavaScript, no API key and no page of our own — unlike the web Picker.
+ *
+ * The files the user picks become reachable under `drive.file`, which is a
+ * non-sensitive scope: it needs no verification review, so this is the way to
+ * reach existing Drive files while the app is unverified.
+ */
+const onePickParams = ({
+  allowMultiple = true,
+  allowFolderSelection = true,
+  mimeTypes,
+  fileIds,
+} = {}) => ({
+  trigger_onepick: "true",
+  ...(allowMultiple ? { allow_multiple: "true" } : {}),
+  ...(allowFolderSelection ? { allow_folder_selection: "true" } : {}),
+  ...(Array.isArray(mimeTypes) && mimeTypes.length > 0
+    ? { mimetypes: mimeTypes.join(",") }
+    : {}),
+  ...(Array.isArray(fileIds) && fileIds.length > 0
+    ? { file_ids: fileIds.join(",") }
+    : {}),
+});
+
 const buildConsentUrl = ({
   accessLevel,
   platform,
@@ -212,26 +250,41 @@ const buildConsentUrl = ({
   // Re-consenting every time is right for Drive, where the refresh token has
   // to come back, but it is friction on a login that only needs an identity.
   prompt = "consent select_account",
+  // Set to turn this into the desktop Google Picker flow. See onePickParams.
+  onePick = null,
 }) => {
   const { clientId, isDesktop } = credentialsFor(platform);
-  const scopes = scopeOverride || scopesForLevel(accessLevel);
+  // The Picker flow dictates its own scope and ignores the access level: the
+  // guide allows `drive.file` and nothing alongside it.
+  const scopes = onePick
+    ? [DRIVE_SCOPE_BY_LEVEL.appOnly]
+    : scopeOverride || scopesForLevel(accessLevel);
 
   const params = new URLSearchParams({
     client_id: clientId,
     redirect_uri: assertRedirectAllowed(redirectUri, isDesktop),
     response_type: "code",
     scope: scopes.join(" "),
-    prompt,
-    include_granted_scopes: "true",
+    // The Picker flow requires exactly `consent`.
+    prompt: onePick ? "consent" : prompt,
     state,
     code_challenge: codeChallenge,
     code_challenge_method: "S256",
   });
+  // Incremental authorization would widen the grant past `drive.file`, which
+  // is the one thing this flow forbids.
+  if (!onePick) params.set("include_granted_scopes", "true");
   if (offline) params.set("access_type", "offline");
-  if (loginHint) params.set("login_hint", loginHint);
+  if (loginHint && !onePick) params.set("login_hint", loginHint);
+  if (onePick) {
+    Object.entries(onePickParams(onePick)).forEach(([key, value]) => {
+      params.set(key, value);
+    });
+  }
 
   return { url: `${AUTH_ENDPOINT}?${params.toString()}`, scopes };
 };
+
 
 /**
  * Starts a consent flow and records everything the exchange will need.
@@ -251,6 +304,7 @@ const startConsent = async ({
   scopes: scopeOverride,
   offline = true,
   prompt,
+  onePick = null,
   // Injected by the tests so they can run without a database.
   store,
 }) => {
@@ -269,6 +323,7 @@ const startConsent = async ({
     scopes: scopeOverride,
     offline,
     prompt,
+    onePick,
   });
 
   const expiresAt = new Date(Date.now() + STATE_TTL_MINUTES * 60 * 1000);
@@ -296,6 +351,35 @@ const startConsent = async ({
  * scopes and no offline access: the id token that comes back is verified and
  * handed to the existing Google login, and the grant is not kept.
  */
+const startPickerConsent = async ({
+  platform,
+  redirectUri,
+  userId,
+  accountId,
+  allowMultiple,
+  allowFolderSelection,
+  mimeTypes,
+  fileIds,
+  store,
+}) =>
+  startConsent({
+    platform,
+    redirectUri,
+    userId,
+    accountId,
+    purpose: "drive",
+    // Whatever the user picks is reachable under `drive.file`, so the account
+    // this creates or updates is recorded at that level.
+    accessLevel: "appOnly",
+    store,
+    onePick: {
+      allowMultiple,
+      allowFolderSelection,
+      mimeTypes,
+      fileIds,
+    },
+  });
+
 const startLoginConsent = async ({ platform, redirectUri, loginHint, store }) =>
   startConsent({
     platform,
@@ -529,6 +613,8 @@ module.exports = {
   buildConsentUrl,
   startConsent,
   startLoginConsent,
+  startPickerConsent,
+  onePickParams,
   exchangeCode,
   refreshAccessToken,
   revokeToken,

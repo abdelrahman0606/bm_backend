@@ -4,6 +4,7 @@ const router = express.Router();
 const googleAccountService = require("./googleAccountService");
 const {
   validateStartConsent,
+  validateStartPicker,
   validateCompleteConsent,
   validateIssueToken,
   validateAccountId,
@@ -45,6 +46,42 @@ router.post(
         success: true,
         data: result,
         message: "Consent URL created",
+      });
+    } catch (error) {
+      next(error);
+    }
+  },
+);
+
+/**
+ * Starts the desktop Google Picker.
+ *
+ * POST /api/v1/auth/google/picker/url
+ * Body: { redirectUri, platform?, accountId?, allowMultiple?,
+ *         allowFolderSelection?, mimeTypes? }
+ *
+ * The client opens the returned `url`; Google shows the picker in the system
+ * browser and redirects back with `picked_file_ids` alongside `code`. The
+ * code then goes to /oauth/exchange exactly as a normal connection would.
+ */
+router.post(
+  "/picker/url",
+  validateStartPicker,
+  validatorMiddleware,
+  async (req, res, next) => {
+    try {
+      const result = await googleAccountService.startPicker(req.userId, {
+        platform: req.body.platform || "web",
+        redirectUri: req.body.redirectUri,
+        accountId: req.body.accountId,
+        allowMultiple: req.body.allowMultiple,
+        allowFolderSelection: req.body.allowFolderSelection,
+        mimeTypes: req.body.mimeTypes,
+      });
+      res.status(200).json({
+        success: true,
+        data: result,
+        message: "Picker URL created",
       });
     } catch (error) {
       next(error);

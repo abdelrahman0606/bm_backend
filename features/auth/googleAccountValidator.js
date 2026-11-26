@@ -44,6 +44,36 @@ const validateStartConsent = [
     .withMessage("accountId must be a valid id"),
 ];
 
+const validateStartPicker = [
+  body("platform")
+    .optional()
+    .isIn(PLATFORMS)
+    .withMessage(`platform must be one of: ${PLATFORMS.join(", ")}`),
+  body("redirectUri")
+    .notEmpty()
+    .withMessage("redirectUri is required")
+    .isURL({ require_tld: false, protocols: ["http", "https"] })
+    .withMessage("redirectUri must be a valid http(s) URL"),
+  body("accountId")
+    .optional()
+    .isMongoId()
+    .withMessage("accountId must be a valid id"),
+  body("allowMultiple").optional().isBoolean().toBoolean(),
+  body("allowFolderSelection").optional().isBoolean().toBoolean(),
+  body("mimeTypes")
+    .optional()
+    .isArray()
+    .withMessage("mimeTypes must be an array of strings"),
+  // The Picker flow fixes its own scope, so an access level here would be
+  // ignored. Rejecting it beats letting a caller think it took effect.
+  body("accessLevel")
+    .not()
+    .exists()
+    .withMessage(
+      "accessLevel cannot be set for the picker: it always uses drive.file.",
+    ),
+];
+
 const validateCompleteConsent = [
   body("state").notEmpty().withMessage("state is required").isString(),
   body("code")
@@ -141,6 +171,7 @@ module.exports = {
   SORT_FIELDS,
   PLATFORMS,
   validateStartConsent,
+  validateStartPicker,
   validateCompleteConsent,
   validateIssueToken,
   validateAccountId,

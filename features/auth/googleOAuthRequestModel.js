@@ -29,10 +29,12 @@ const googleOAuthRequestSchema = new mongoose.Schema(
     },
     // What the finished flow may be redeemed for. Checked on exchange, so a
     // state issued by the public login endpoint cannot be spent connecting a
-    // Drive account, or the other way round.
+    // Drive account, or the other way round. "gmail" is held to the same
+    // rule: a Gmail grant carries mail scopes, and the Drive exchange must
+    // not be able to redeem one.
     purpose: {
       type: String,
-      enum: ["drive", "login"],
+      enum: ["drive", "login", "gmail"],
       default: "drive",
       required: true,
     },
